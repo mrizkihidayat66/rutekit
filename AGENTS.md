@@ -47,6 +47,26 @@ is decided by the implementation, not the other way around.
 
 ## Traps
 
+### Version control
+
+**A bare directory in `.gitignore` matches at every depth.** `data/` was written to
+exclude the SQLite directory at the root, and it also swallowed `apps/web/src/data/` —
+nine source files, the console's data layer, imported by six hooks. They were present on
+disk, so `bun run check` passed and `git status` said nothing, and the first push
+published a repository that could not build from a clean clone. CI caught it on its first
+run and nothing local could have.
+
+Anchor a rule to the root (`/data/`) when it is about one path, and after adding or
+changing an ignore rule, check what it actually covers:
+
+```bash
+git check-ignore -v <path>          # which rule matched, if any
+git status --ignored --porcelain    # what is being excluded
+```
+
+An ignored directory collapses to one line in that output, so walk it if you suspect
+source is hiding inside.
+
 ### Tools and environment
 
 **Tool output in this session corrupts long literals.** A literal written to a file
