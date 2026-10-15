@@ -18,7 +18,7 @@ process. That provider has to call something, and that "something" should be thi
 instance — but there is no clear way in for credentials.
 
 **What "quality score" means.** FR-9.2 mentions it, `benchmarkResultSchema` has had
-`qualityScore` 0–1 since FASE B, but there is no rubric anywhere: nothing can fill
+`qualityScore` 0–1 since PHASE B, but there is no rubric anywhere: nothing can fill
 that column.
 
 **What a failed cell means.** Promptfoo has its own opinion about this, and its

@@ -16,7 +16,7 @@ import type { AppDeps, AppEnv } from '@server/types.ts';
  * Three routes, and they are the last piece of the Routing section to land. The
  * compression pipeline has run since C4, `packages/compression` has reported a
  * `StageReport` per stage since it was written, and the console has had a page
- * for all of it since FASE B — but nothing ever served that page. It was found by
+ * for all of it since PHASE B — but nothing ever served that page. It was found by
  * `apps/server/test/contract.test.ts` in D1, which is what that test is for: the
  * server registered 81 of the contract's 85 paths, and the two missing were this.
  *

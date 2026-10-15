@@ -5,7 +5,7 @@ Status: **Accepted** · Date: 2026-10-14 · Related decisions: FR-7.7–7.10, AD
 ## Context
 
 C9 is the backend for the Chat page: sessions, transcript, and one endpoint that answers
-with a stream. The page has existed since FASE B, built on MSW, and its mock handler
+with a stream. The page has existed since PHASE B, built on MSW, and its mock handler
 already wrote AI SDK UI Message frames — so the protocol was decided before C9 began.
 What was missing is the server side.
 

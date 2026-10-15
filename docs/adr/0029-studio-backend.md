@@ -176,10 +176,10 @@ published after every write, so a pushed frame and a polled read never disagree.
 
 `studio.ts` in the frontend records this gap explicitly: "`studioGenerateBodySchema`
 has no parent field, so the new job cannot record where it came from." The composer has
-carried `origin` since FASE B and had nowhere to send it, so refine/variation/upscale could
+carried `origin` since PHASE B and had nowhere to send it, so refine/variation/upscale could
 only **claim** its lineage in a caption.
 
-`Asset.parentAssetId` has existed in the contract since FASE B with nothing filling it. The
+`Asset.parentAssetId` has existed in the contract since PHASE B with nothing filling it. The
 only thing missing was the entrance, so `parentAssetId` was added to
 `studioGenerateBodySchema` and carried through to the asset row.
 

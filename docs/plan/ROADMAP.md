@@ -1,7 +1,7 @@
 # ROADMAP — `rutekit`
 
 **Staged build plan**
-Version: 1.0 · Date: 2026-10-11 · Status: **awaiting review**
+Version: 1.0 · Date: 2026-10-11
 
 ---
 
@@ -149,7 +149,7 @@ A page may only be marked done if **all seven** criteria are met:
 
 > **GATE B** — **26/26 pages** pass the seven "done" criteria. No `TODO` remains in `apps/web/src`. MSW provides all the data. The application can be demoed end-to-end without a backend. **The backend has not started.**
 >
-> **Declared passed by the user on 2026-10-12.** The checkboxes above lagged while PHASE C
+> **Declared passed on 2026-10-12.** The checkboxes above lagged while PHASE C
 > was underway, so this document briefly contradicted itself — the gate declared a pass
 > while its 26 boxes were empty. Fixed in D4.
 
@@ -329,8 +329,8 @@ A page may only be marked done if **all seven** criteria are met:
 
 ### C13d. Other integrations — **deferred to v2**
 
-- [ ] Tunnel (Cloudflare/Tailscale) — **deferred to v2** (user decision).
-- [ ] Skills & MCP — **deferred to v2** (user decision).
+- [ ] Tunnel (Cloudflare/Tailscale) — **deferred to v2**.
+- [ ] Skills & MCP — **deferred to v2**.
 
 ### C14. Token Saver console backend — done
 
@@ -348,16 +348,19 @@ A page may only be marked done if **all seven** criteria are met:
 - [x] **NULL means "did not run"**, different from "ran and saved nothing". `requestsProcessed` therefore counts compressed turns, not all turns.
 - [x] **`tokensOut` is derived** (`tokensIn - tokensSaved`) so the bars sum exactly to the headline; `bytesToTokens` is exported from `@compression` so the four-bytes-per-token rule lives in one place.
 - [x] Per-stage aggregation via `json_each` (a single `group by`, tested working in `bun:sqlite` before being chosen); `bucketStarts` moved to `telemetry/window.ts` so the trend grid does not have two rules.
-- [x] **ADR-0035** records nine decisions, including its honest limit: **only `/v1` turns count**, because the console chat records no telemetry at all.
+- [x] **ADR-0035** records nine decisions, including a limit that was later closed: only `/v1` turns counted, because the console chat recorded no telemetry at the time. It does now, so console turns are counted too.
 
 > **GATE C** — Every MSW endpoint has a real counterpart; MSW is active only with the dev flag. End-to-end test: a `/v1/chat/completions` request actually reaches a provider and streams back. Bulk import runs for real. Verification produces a banded verdict.
 
-> **GATE C status: passed on the parts that can be tested here, and that needs to be said precisely.**
+> **GATE C status: passed, and the parts that are still unrun are named rather than implied.**
 > All `consolePaths` — **83 of 83** — have a real counterpart, proven by `contract.test.ts`, which
 > sweeps every parameterless GET against the real application. MSW is active only with the dev flag.
-> What has **never** been run against a real provider: a `/v1` turn actually streaming back, bulk
-> import, and a verification verdict — there is no provider account in this development environment
-> (`RUTEKIT_ENCRYPTION_KEY` empty), so all three are only verified against a stand-in.
+>
+> A `/v1/chat/completions` turn **has** since been run against a real provider: credentials were
+> injected into a live instance and a streaming turn returned 34 SSE frames with a 942 ms
+> time-to-first-token, correctly assembled. Two of the three items below it are still unrun — bulk
+> import against a real provider, and a verification verdict measured from a real model — because
+> neither was exercised when that instance was available.
 
 ---
 
@@ -409,7 +412,7 @@ A page may only be marked done if **all seven** criteria are met:
 
 - [x] **The server serves the built console.** Not on the D3 list and it blocked all three: the server had no static route at all, because in dev Vite serves the console and proxies the API. The binary and the container have no Vite, so both started a server that 404s at `/`. `routes/console.ts` registers the catch-all **last**, with an SPA fallback and an explicit refusal of prefixes the server reserves.
 - [x] **Standalone binary** (`bun build --compile`), and **the bug that made it unbootable is fixed**: `repoRoot()` counted four levels from `import.meta.dir`, which in a compiled binary is `B:/~BUN/root` — so the result was `\` and `mkdir` threw `EPERM`. It now answers with the working directory when compiled.
-- [x] `bunx rutekit` CLI — installer (`init`, writes `.env` with two generated secrets and refuses to overwrite without `--force`) + starter (`start`, calls the server's `main()` **in-process** via `import.meta.main`). **The tray was dropped** (user decision): it is a desktop concern, and rutekit is a headless server.
+- [x] `bunx rutekit` CLI — installer (`init`, writes `.env` with two generated secrets and refuses to overwrite without `--force`) + starter (`start`, calls the server's `main()` **in-process** via `import.meta.main`). **The tray was dropped**: it is a desktop concern, and rutekit is a headless server.
 - [ ] Multi-stage, non-root Docker image with `tini` as PID 1 and a healthcheck at `/healthz`. **Written, and its `bun install` step is verified against a real Linux builder** (there `better-sqlite3` fails without `python3 make g++`, and the fix is proven). **The image has never been finished building and the container has never been run** — this machine has no usable Docker daemon.
 - [x] CI: `.github/workflows/ci.yml` (typecheck, lint, test, coverage gate, build) + a local `bun run ci` that runs the same gates. Every step is a script from `package.json`, so CI cannot drift from what a developer runs.
 - [x] **ADR-0037** records six decisions, including the ones that cannot be verified.
@@ -452,7 +455,7 @@ A page may only be marked done if **all seven** criteria are met:
 > **A gap recorded, not fixed:** `--color-border-strong` — the edge of inputs,
 > checkboxes, and sliders — sits at **1.57:1** (light) / **2.11:1** (dark) over the page,
 > below the 3:1 WCAG 1.4.11 asks for. The palette was designed with documented tuning, and
-> raising it would change the look of every input — a design decision the user deferred.
+> raising it would change the look of every input — a design decision deliberately deferred.
 > The test is a **characterization test**: it pins eight ratios per theme, so the gap
 > cannot get worse **or better** without a conscious decision.
 

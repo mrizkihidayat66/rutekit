@@ -69,7 +69,7 @@ describe('the provider icon map', () => {
 describe('the mock layer', () => {
   it('is off unless it is asked for', () => {
     // The default this file exists to protect. Mocks were on by default through
-    // FASE B, when there was no backend; now that there is one, a console that
+    // PHASE B, when there was no backend; now that there is one, a console that
     // silently answers from fixtures is a console that disagrees with the server
     // and says nothing about it. `VITE_MOCKS` is unset in the test environment,
     // which is exactly the case being asserted.

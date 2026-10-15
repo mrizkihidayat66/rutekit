@@ -7,7 +7,7 @@ Status: **Accepted** · Date: 2026-10-13 · Related decisions: FR-12.1–12.4, F
 Until C5, rutekit knew what was happening _now_: how many accounts are active, what
 quota the provider last stated, which turns are in flight. What was still missing is
 what has **already** happened. The Dashboard, Usage & Metrics, Console Log, and
-request inspector pages in the frontend were built back in FASE B and already called
+request inspector pages in the frontend were built back in PHASE B and already called
 endpoints that had no real counterpart.
 
 Four design questions arise:
@@ -19,7 +19,7 @@ Four design questions arise:
 3. **Where the console log lives.** A log is diagnostic and high-volume: one `debug`
    turn writes several lines.
 4. **What low-stress mode means.** The switch in Dashboard and Settings has existed
-   since FASE B, and its description reads _"prefer the cheap and the fast over the
+   since PHASE B, and its description reads _"prefer the cheap and the fast over the
    best"_ — but nothing reads it yet.
 
 ## Decision

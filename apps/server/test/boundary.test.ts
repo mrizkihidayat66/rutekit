@@ -14,8 +14,8 @@ import { describe, expect, it } from 'vitest';
  * browser bundle, or a component pulled into the server) is exactly the kind
  * that survives review and breaks at build time.
  *
- * The backend is a skeleton in FASE A, so the source scan has little to read
- * yet; it becomes substantive the moment FASE C adds code, without any change
+ * The backend is a skeleton in PHASE A, so the source scan has little to read
+ * yet; it becomes substantive the moment PHASE C adds code, without any change
  * here. The manifest and `.tsx` checks are already real.
  */
 
@@ -129,14 +129,22 @@ describe('server boundary', () => {
   it('reaches nothing under apps/web', () => {
     const violations = graph
       .filter((edge) => edge.resolved !== null && edge.resolved.startsWith(WEB_ROOT))
-      .map((edge) => `${shown(edge.from)} imports "${edge.specifier}" → ${shown(edge.resolved as string)}`);
+      .map(
+        (edge) =>
+          `${shown(edge.from)} imports "${edge.specifier}" → ${shown(edge.resolved as string)}`,
+      );
     expect(violations).toEqual([]);
   });
 
   it('declares no frontend-only dependency', () => {
-    const manifest: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> } =
-      JSON.parse(readFileSync(join(SERVER_ROOT, 'package.json'), 'utf8'));
-    const declared = [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {})];
+    const manifest: {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    } = JSON.parse(readFileSync(join(SERVER_ROOT, 'package.json'), 'utf8'));
+    const declared = [
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.devDependencies ?? {}),
+    ];
     const violations = declared.filter((name) => FORBIDDEN.some(([pattern]) => pattern.test(name)));
     expect(violations).toEqual([]);
   });

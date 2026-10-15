@@ -4,7 +4,7 @@ Status: **Accepted** · Date: 2026-10-15 · Related decisions: NFR-4, NFR-6, NFR
 
 ## Context
 
-D5 is the last group of FASE D, and the roadmap asks for four things: a full a11y audit
+D5 is the last group of PHASE D, and the roadmap asks for four things: a full a11y audit
 (axe + manual keyboard testing of every page), a performance audit (LCP <1.5s, bundle
 <300KB gzip), a WCAG AA contrast audit, and cross-browser testing.
 
@@ -51,7 +51,7 @@ ever a graphic (badge tint, meter bar, warning dot); its text is carried by
 and hover edges — sits at **1.57:1** (light) and **2.11:1** (dark) on the page.
 `--color-border` is lower still. WCAG 1.4.11 asks for 3:1 for control boundaries.
 
-**Not fixed, and that is the user's decision.** The palette is a palette designed with its
+**Not fixed, and that is deliberate.** The palette is a palette designed with its
 own comments explaining how each value was tuned, and raising those two tokens changes the
 look of **every input in the console** — a design decision, not a correctness fix.
 
@@ -82,7 +82,7 @@ NFR-4 asks for LCP <1.5s locally, and **it is measured: 224 ms median across six
 was that the Browser pane runs the page without painting it (`visibilityState: hidden`, empty
 `paint` entries) and an invisible page does not paint — which is true of the Browser pane, but
 it does not follow that LCP cannot be taken here. Playwright ships a real headless Chromium,
-and a real headless browser *does* paint. The measurement is six fresh contexts against
+and a real headless browser _does_ paint. The measurement is six fresh contexts against
 `http://127.0.0.1:7331/`, each waiting for layout to settle before reading
 `largest-contentful-paint`; the same run reported CLS 0.0001 and TTFB ~2 ms.
 
@@ -166,7 +166,7 @@ produced four errors.
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | Audit contrast with axe              | jsdom has no layout and no color compositing; it would be green without meaning anything                 |
 | Trust the palette comment            | The comment explains the intent, and nothing checks the intent                                           |
-| Raise `--color-border-strong` to 3:1 | Changes the look of every input; a design decision, and the user chose to postpone it                    |
+| Raise `--color-border-strong` to 3:1 | Changes the look of every input; a design decision, deliberately postponed                               |
 | Remove the border assertion          | The gap would then be invisible and could quietly worsen                                                 |
 | Claim the border passes              | Not true, and an ADR that is wrong is worse than none                                                    |
 | Report LCP as unmeasurable           | The Browser pane cannot paint, but a real headless browser can — and it took the number in minutes       |

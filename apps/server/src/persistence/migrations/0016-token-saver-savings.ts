@@ -3,7 +3,7 @@ import type { Migration } from './types.ts';
 /**
  * What the Token Saver removed, per turn (C14, FR-1.2 / A3).
  *
- * The Token Saver's own settings page has reported savings since FASE B — the
+ * The Token Saver's own settings page has reported savings since PHASE B — the
  * console's fixture draws the per-stage bars and the trend line — but the server
  * never recorded any of it. `packages/compression` has produced a `StageReport`
  * per stage since the pipeline was written; the call site took `.request` and let

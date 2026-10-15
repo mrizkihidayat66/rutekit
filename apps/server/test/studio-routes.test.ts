@@ -187,7 +187,7 @@ describe('queueing a render', () => {
   });
 
   it('records where a refined render came from', async () => {
-    // `Asset.parentAssetId` has been in the contract since FASE B with nothing
+    // `Asset.parentAssetId` has been in the contract since PHASE B with nothing
     // to fill it; this is the half that makes the composer's lineage real rather
     // than a caption.
     const h = await harness();

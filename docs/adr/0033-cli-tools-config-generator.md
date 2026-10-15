@@ -4,13 +4,13 @@ Status: **Accepted** · Date: 2026-10-14 · Related decisions: FR-2.4, ADR-0018,
 
 ## Context
 
-C13c is the last item of FASE C: **a config generator for coding clients** — show the
+C13c is the last item of PHASE C: **a config generator for coding clients** — show the
 operator what to write in the config of Claude Code, Codex, Cline, OpenCode, Continue, and
 similar clients so that the client points at rutekit instead of at the vendor.
 
 One thing is immediately visible: **there is no CLI Tools page among the 26 pages of
 the PRD**. The frontend that was confirmed complete has no place for this, and that
-makes C13c not an ordinary FASE C group — it is mostly FASE B work.
+makes C13c not an ordinary PHASE C group — it is mostly PHASE B work.
 
 Comparable tools in this space all ship this feature, and they shape it uniformly: a
 CLI-tools page in the console that knows which clients are installed and writes their
@@ -97,7 +97,7 @@ static and the base URL is precisely the value that must not come from the serve
 route wrapping the two would be a route whose only content is static data and one
 value that is wrong for the most important case.
 
-The consequence is recorded honestly: **C13c closes a FASE B gap, not a new backend
+The consequence is recorded honestly: **C13c closes a PHASE B gap, not a new backend
 addition.** It is written in the ROADMAP as C13c with that note, and the PRD grows
 from 26 pages to 27.
 
@@ -167,7 +167,7 @@ reject the very values the operator most wants to use.
   and Claude Code `settings.json` are written from knowledge of those clients. Only the generic
   entries have a shape that can be checked from this repository, and only Claude Code is
   verified against its client source. The page says so, but still: this is the code most
-  likely to be wrong in all of FASE C.
+  likely to be wrong in all of PHASE C.
 - **There is no client detection, and there never will be** as long as the console is a
   web page. The operator has to know which client they use.
 - **The client list cannot grow without a verification cost.** Every new entry is a new

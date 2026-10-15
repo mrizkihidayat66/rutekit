@@ -12,7 +12,7 @@ decision, [ADR](docs/adr/README.md).
 ```
 apps/
   server/          @rutekit/server  — Hono, Bun.serve, SQLite. Data plane + control plane.
-  web/             @rutekit/web     — React 19 + Vite. Console, 27 pages.
+  web/             @rutekit/web     — React 19 + Vite. The operator console.
   cli/             rutekit          — the `rutekit` command: init + start.
 packages/
   contracts/       @rutekit/contracts       — Zod schemas + types. The ONLY FE↔BE bridge.
@@ -68,7 +68,7 @@ The server serves two namespaces and never mixes them (ADR-0003):
 | Namespace        | Audience            | Authentication   | Contents                     |
 | ---------------- | ------------------- | ---------------- | ---------------------------- |
 | `/v1/*`          | Operator SDK client | API key (Bearer) | The five data-plane surfaces |
-| `/console/api/*` | Operator dashboard  | Session cookie   | 85 control-plane paths       |
+| `/console/api/*` | Operator dashboard  | Session cookie   | 83 control-plane paths       |
 
 **Why they are separate.** A `/v1` client must not be able to reach a route that edits
 the pool, and the dashboard must not have to understand completion payloads. That
@@ -221,7 +221,7 @@ What keeps it honest:
 
 **Coverage is measured with `istanbul`, not `v8`** (ADR-0034). Under Bun, the v8
 provider fails to convert most server files and **reports every file it fails to convert
-as 100% covered** — it reported 92.38% for code that is really 86.4%. A gate that
+as 100% covered** — it reported 92.38% for code istanbul measured at 86%. A gate that
 rewards files without tests is worse than no gate at all.
 
 ---
@@ -232,7 +232,7 @@ rewards files without tests is worse than no gate at all.
   the console and the compiled binary.
 - **No ORM on the hot path.** Repositories use explicit SQL where aggregation happens;
   Drizzle is used for simple reads and writes.
-- **No MITM proxy, Tunnel, Skills/MCP.** Deferred to v2 (the user's decision).
+- **No MITM proxy, Tunnel, Skills/MCP.** Deliberately deferred to v2.
 - **No i18n.** English only in v1 (ADR-0013).
 - **Automation is not installed in the Docker image.** It needs Node + Playwright +
   Camoufox, hundreds of megabytes for a feature an operator may never use.

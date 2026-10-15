@@ -4,7 +4,7 @@ Status: **Accepted** · Date: 2026-10-14 · Related decisions: NFR-7, NFR-8, ADR
 
 ## Context
 
-D2 is the second group of FASE D, and the roadmap asks for four things: self-migration
+D2 is the second group of PHASE D, and the roadmap asks for four things: self-migration
 verified on an empty DB **and an old DB**, graceful shutdown (drain + `503
 shutting_down`), backup/restore end to end, and telemetry export/import without
 duplication.

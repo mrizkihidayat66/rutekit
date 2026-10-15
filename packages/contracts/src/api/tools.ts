@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { contentBlockSchema } from '../canonical.ts';
 import { isoDateTimeSchema, pageSchema } from '../common.ts';
-import { assetKindSchema, assetSchema, generationJobSchema, generationJobStatusSchema } from '../entities/asset.ts';
+import {
+  assetKindSchema,
+  assetSchema,
+  generationJobSchema,
+  generationJobStatusSchema,
+} from '../entities/asset.ts';
 import {
   benchmarkAssertionSchema,
   benchmarkSummarySchema,
@@ -14,7 +19,12 @@ import {
 } from '../entities/chat.ts';
 import { filterRuleSchema } from '../entities/routing.ts';
 import { probeBudgetSchema, verificationResultSchema } from '../entities/verification.ts';
-import { vccBinSchema, vccBrandSchema, vccCardSchema, vccCardStatusSchema } from '../entities/vcc.ts';
+import {
+  vccBinSchema,
+  vccBrandSchema,
+  vccCardSchema,
+  vccCardStatusSchema,
+} from '../entities/vcc.ts';
 import { listQuerySchema, searchQuerySchema, updateSchema } from './shared.ts';
 
 /** Tools section: Chat, Studio, Benchmark, Model Verification, Tools. */
@@ -53,7 +63,7 @@ export type ChatMessageInput = z.infer<typeof chatMessageInputSchema>;
  *
  * The body of `POST /chat/sessions/:id/messages` when the caller wants the reply
  * back on the same connection. The response is `text/event-stream` carrying AI
- * SDK UI Message chunks — the same frames FASE C's Hono handler will emit, so
+ * SDK UI Message chunks — the same frames PHASE C's Hono handler will emit, so
  * the page is written against the real wire protocol rather than a stand-in.
  *
  * It carries the routing trio as well as the message: the reply depends on which
@@ -102,7 +112,7 @@ export const studioGenerateBodySchema = z.object({
    * The composer already loads a previous asset's prompt and settings, and until
    * now the new render had no way to say where they came from — the console could
    * only *claim* the lineage in a caption. `Asset.parentAssetId` has been in the
-   * contract since FASE B with nothing to fill it, so this is the missing half
+   * contract since PHASE B with nothing to fill it, so this is the missing half
    * rather than a new field.
    */
   parentAssetId: z.string().nullable().default(null),
@@ -241,9 +251,7 @@ export const dotTrickResultSchema = z.object({
   input: z.string(),
   localPart: z.string(),
   domain: z.string(),
-  variants: z.array(
-    z.object({ address: z.string(), technique: z.enum(['dot', 'plus']) }),
-  ),
+  variants: z.array(z.object({ address: z.string(), technique: z.enum(['dot', 'plus']) })),
   /** True when the cap cut the list short. */
   truncated: z.boolean(),
 });

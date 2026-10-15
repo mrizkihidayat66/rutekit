@@ -8,7 +8,7 @@ C14 is not a planned group. It was found by `apps/server/test/contract.test.ts` 
 the server registers **81 of 83** `consolePaths`, and the two missing ones are the
 entire Token Saver console backend. The Token Saver page **404s against the real
 server** — it only works against the mock, whose handlers have been complete since
-FASE B.
+PHASE B.
 
 So the work is two things, at very different levels of difficulty:
 
@@ -120,16 +120,20 @@ one switch sends one field. A write that replaced the record would **reset `enab
 the switch the whole feature depends on — every time the operator changes the Caveman
 tier.
 
-### 9. An honest limit: only `/v1` turns are counted
+### 9. A limit that was found here and closed afterwards
 
-Found while working, and recorded rather than left implied: **console chat does not
-record telemetry at all.** `ChatTurnDeps` has no recorder, so there is no `requests` row
-for a chat turn. Because savings attach to that row, it covers `/v1` traffic only.
+Found while working, and recorded rather than left implied: at the time, **console chat
+recorded no telemetry at all.** `ChatTurnDeps` had no recorder, so a chat turn wrote no
+`requests` row — and because savings attach to that row, the page covered `/v1` traffic
+only. The number it showed was lower than the savings actually happening.
 
-The question "which turns are counted" is answered "every turn that goes through the
-pipeline" — and that answer is true in the sense that the pipeline runs for both, but
-only `/v1` is **recorded**. Changing that would mean giving console chat telemetry, which
-is a bigger change than C14 and not what was asked for.
+**That was closed after this ADR was written.** The chat console now records telemetry,
+including the compression report, so a console turn writes its own `requests` row and its
+savings are counted with everything else. `apps/server/test/chat-telemetry.test.ts` asserts
+it, including that a console turn increments `requestsProcessed`.
+
+The paragraph above is kept because it is the record of what was found at the time, not a
+description of the current state.
 
 ## Consequences
 
@@ -145,9 +149,6 @@ is a bigger change than C14 and not what was asked for.
 
 **Negative / risk**
 
-- **Only `/v1` turns are counted.** Console chat is compressed by the same pipeline but
-  records no telemetry, so its savings do not appear. The number on the page is lower than
-  the savings that actually happened.
 - **Aggregation reads JSON, not an indexed column.** Every query filters on `at` first, so
   the index that matters is still used — but `json_each` is a table scan over the rows
   that pass the filter, and that is slower than an ordinary `group by` on a column.

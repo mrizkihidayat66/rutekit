@@ -4,7 +4,7 @@ Status: **Accepted** · Date: 2026-10-14 · Related decisions: NFR-2, A1, ADR-00
 
 ## Context
 
-D1 is the first group of FASE D (Hardening), and the roadmap asks for six things:
+D1 is the first group of PHASE D (Hardening), and the roadmap asks for six things:
 coverage ≥85% lines on `apps/server/src` (NFR-2), a data-driven translator matrix test
 (A1), a contract test for endpoint ↔ schema, a parity test for mirror/usage dimensions/
 provider list/icon map, a boundary test that stays green, and isolated DB tests.
@@ -107,7 +107,7 @@ but a query that cannot be built. That is why the test **pushes every dimension 
 enum through the real repository** instead of reading its map: the map is private, and
 what the operator experiences is the query.
 
-### 4. The contract test found the FASE C gap, and is left red
+### 4. The contract test found the PHASE C gap, and is left red
 
 `apps/server/test/contract.test.ts` runs **every console GET without parameters** against
 the real application and validates its body against the schema the contract declares for
@@ -127,7 +127,7 @@ Two levels of difficulty, and that is why the gap is not closed here:
   exactly the fields the schema asks for, but **the recorder never stores them**, so it
   needs a migration + recorder change + aggregation + route.
 
-**The test is left red, by the user's decision.** Adding the two routes to the "not
+**The test is deliberately left red.** Adding the two routes to the "not
 validated" table would make the suite green while hiding exactly the gap this test was
 created to find — and that is the pattern the file's header names as one to avoid. Red
 means: there is a route the contract promises and the server does not serve. The gap is
@@ -179,7 +179,7 @@ that happened to already be null), and then all three guards were shot down one 
 - A new family or surface is automatically covered, and that is proven by mutation.
 - The four copied lists are guarded on the side where they diverge, not in one place that
   has to know everything.
-- **The contract test found a feature missing from FASE C** — which is exactly its job.
+- **The contract test found a feature missing from PHASE C** — which is exactly its job.
 - One resource leak on the shutdown path is fixed.
 - Test isolation stops being a coincidence.
 
@@ -209,6 +209,18 @@ test:coverage` now exits without a table and without evaluating the threshold. T
 - **`it.fails`, quarantine, and a "known missing" table were all rejected** for the
   token-saver gap. That is a conscious decision that makes the suite red; the alternative
   is green but a lie.
+
+## Resolved Since
+
+**C14 closed the gap this ADR was written around.** `GET`/`PATCH /token-saver` and
+`GET /token-saver/savings` were built, so the contract test has no red case left, the suite
+is green, and the coverage gate is evaluated again.
+
+The figures in the section above are the ones measured during D1 and are kept as written,
+because they are the record of what was found and why the test was left red — not a
+description of the current state. Coverage has moved on since: it is now **87.02% lines /
+74.66% branches**, and the suite is **84 files and 1650 tests**. See ADR-0035 for the Token
+Saver work itself.
 
 ## Rejected Alternatives
 

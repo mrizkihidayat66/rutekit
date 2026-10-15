@@ -69,7 +69,10 @@ function request(overrides: Partial<MediaRequest> = {}): MediaRequest {
 }
 
 interface Graph {
-  readonly [node: string]: { readonly class_type: string; readonly inputs: Record<string, unknown> };
+  readonly [node: string]: {
+    readonly class_type: string;
+    readonly inputs: Record<string, unknown>;
+  };
 }
 
 describe('the ComfyUI graph', () => {
@@ -88,7 +91,9 @@ describe('the ComfyUI graph', () => {
     // The manifest lists `sd_xl_base_1.0.safetensors` — a file on the operator's
     // own disk, not a model family — so the id is the `ckpt_name`.
     const graph = buildGraph(request()) as unknown as Graph;
-    const loader = Object.values(graph).find((node) => node.class_type === 'CheckpointLoaderSimple');
+    const loader = Object.values(graph).find(
+      (node) => node.class_type === 'CheckpointLoaderSimple',
+    );
     expect(loader?.inputs['ckpt_name']).toBe('sd_xl_base_1.0.safetensors');
   });
 
@@ -305,7 +310,8 @@ async function settle(
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const last = [...harness.published].reverse().find((job) => job.id === id);
-    if (last !== undefined && !['queued', 'executing', 'progress'].includes(last.status)) return last;
+    if (last !== undefined && !['queued', 'executing', 'progress'].includes(last.status))
+      return last;
     if (Date.now() > deadline) {
       throw new Error(`generation ${id} did not settle; last was ${JSON.stringify(last)}`);
     }
@@ -502,7 +508,7 @@ describe('the generation queue', () => {
   });
 
   it('carries the lineage onto the asset the render produced', async () => {
-    // `Asset.parentAssetId` has been in the contract since FASE B with nothing
+    // `Asset.parentAssetId` has been in the contract since PHASE B with nothing
     // to fill it, and the composer's refine/variation/upscale could only *claim*
     // the lineage in a caption. This is the half that makes it real.
     const harness = queueHarness([fakeMediaDriver()]);
@@ -643,7 +649,10 @@ describe('the ComfyUI driver', () => {
     });
     script.emit({
       type: 'executed',
-      data: { prompt_id: 'p1', output: { images: [{ filename: 'rutekit_00001_.png', subfolder: '', type: 'output' }] } },
+      data: {
+        prompt_id: 'p1',
+        output: { images: [{ filename: 'rutekit_00001_.png', subfolder: '', type: 'output' }] },
+      },
     });
 
     const output = await generate;
@@ -676,11 +685,17 @@ describe('the ComfyUI driver', () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     script.emit({
       type: 'executed',
-      data: { prompt_id: 'someone-else', output: { images: [{ filename: 'theirs.png', subfolder: '', type: 'output' }] } },
+      data: {
+        prompt_id: 'someone-else',
+        output: { images: [{ filename: 'theirs.png', subfolder: '', type: 'output' }] },
+      },
     });
     script.emit({
       type: 'executed',
-      data: { prompt_id: 'mine', output: { images: [{ filename: 'mine.png', subfolder: '', type: 'output' }] } },
+      data: {
+        prompt_id: 'mine',
+        output: { images: [{ filename: 'mine.png', subfolder: '', type: 'output' }] },
+      },
     });
 
     expect((await generate).extension).toBe('png');

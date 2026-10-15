@@ -89,7 +89,7 @@ export function StudioPage() {
         parameters: buildParameters(draft),
         count: draft.count,
         // The asset this draft was loaded from, when it was loaded from one. The
-        // composer has carried `origin` since FASE B and had nowhere to send it,
+        // composer has carried `origin` since PHASE B and had nowhere to send it,
         // so refine/variation/upscale could only *say* where a render came from.
         parentAssetId: draft.origin,
       },

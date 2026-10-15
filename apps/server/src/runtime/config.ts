@@ -138,7 +138,7 @@ export interface ServerConfig {
   readonly databaseUrl: string;
   /** Absolute path to the directory holding generated assets and screenshots. */
   readonly dataDir: string;
-  /** Null until the operator generates one; credential storage needs it (FASE C2). */
+  /** Null until the operator generates one; credential storage needs it (PHASE C2). */
   readonly encryptionKey: string | null;
   readonly authSecret: string | null;
   /** Extra CIDRs the egress guard may reach, on top of the public internet (C2). */

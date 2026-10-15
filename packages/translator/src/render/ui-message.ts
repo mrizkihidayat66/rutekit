@@ -17,7 +17,7 @@ import type { StreamRenderer } from './shared.ts';
  * client: the backend stays Hono and does not take a transport library to emit
  * a dozen frame types. AP-10 forbids a hand-written SSE *parser*, which is a
  * different thing — this reads nothing, it writes a documented format whose
- * shape the console's own mock has produced since FASE B.
+ * shape the console's own mock has produced since PHASE B.
  *
  * **The protocol is block-oriented, and so is the pivot.** A canonical stream
  * says `block_start`, some deltas, `block_stop`; the UI Message protocol says
@@ -241,7 +241,10 @@ export function createUiMessageStream(options: UiStreamOptions): UiMessageRender
           const block = open.get(event.index);
           if (block !== undefined) {
             open.delete(event.index);
-            return frame({ type: block.kind === 'text' ? 'text-end' : 'reasoning-end', id: block.id });
+            return frame({
+              type: block.kind === 'text' ? 'text-end' : 'reasoning-end',
+              id: block.id,
+            });
           }
           const call = toolJson.get(event.index);
           if (call !== undefined) {

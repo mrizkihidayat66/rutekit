@@ -11,7 +11,7 @@ import { makeServer, type TestServer } from './helpers.ts';
 /**
  * The Token Saver's console (C14, FR-1.2 / A3).
  *
- * The last piece of FASE C to land, and it landed here because D1's contract test
+ * The last piece of PHASE C to land, and it landed here because D1's contract test
  * found it missing rather than because anyone remembered it. So the tests are
  * written against the two things that were actually absent: **the routes answer**
  * (which the contract test already asserts, and this file drives end to end) and

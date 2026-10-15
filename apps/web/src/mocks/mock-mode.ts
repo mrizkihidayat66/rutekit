@@ -1,8 +1,8 @@
 /**
  * Whether the console talks to the mock layer or to the real server.
  *
- * **The real server is the default.** FASE B built the whole console against MSW
- * because there was no backend yet; FASE C built the backend, and D4 finished
+ * **The real server is the default.** PHASE B built the whole console against MSW
+ * because there was no backend yet; PHASE C built the backend, and D4 finished
  * wiring the two together. Leaving the mocks on by default past that point means
  * the console a developer sees is a *different* console from the one an operator
  * gets — every fixture is a claim about what the server answers, and a claim

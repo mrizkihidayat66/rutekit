@@ -6,7 +6,7 @@ import { HttpResponse, delay } from 'msw';
  * The chat turn is the only route in the console whose answer arrives while it
  * is still being written. `POST /chat/sessions/:id/messages` replies with
  * `text/event-stream`, and the frames on it are AI SDK UI Message chunks — the
- * same bytes FASE C's Hono handler will emit, so the page is built against the
+ * same bytes PHASE C's Hono handler will emit, so the page is built against the
  * real protocol rather than a stand-in that has to be swapped out later.
  *
  * The pacing is the point of having this at all. A reply that lands in one tick
@@ -32,7 +32,10 @@ function frame(chunk: unknown): string {
  * `onDone` runs once the last frame is on the wire — the point at which the
  * turn is real and a handler can persist it without racing the client.
  */
-export function sseResponse(beats: readonly SseBeat[], onDone?: () => void): HttpResponse<ReadableStream<Uint8Array>> {
+export function sseResponse(
+  beats: readonly SseBeat[],
+  onDone?: () => void,
+): HttpResponse<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({

@@ -245,7 +245,7 @@ describe.each([
    * It is deliberately not fixed here. The palette is a designed one with its own
    * comments explaining how each value was tuned, and raising these two would
    * change how every input in the console looks — a design decision, not a
-   * correctness fix, and one the user chose to defer. What matters is that the
+   * correctness fix, and one deliberately deferred. What matters is that the
    * numbers cannot drift unnoticed: a palette change that makes the gap *worse*
    * fails here, and one that closes it also fails, because the recorded value is
    * what the test pins.

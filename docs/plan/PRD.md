@@ -1,7 +1,7 @@
 # PRD — `rutekit`
 
 **Product Requirements Document**
-Version: 1.0 (draft) · Date: 2026-10-11 · Status: **awaiting review**
+Version: 1.0 · Date: 2026-10-11
 
 ---
 
