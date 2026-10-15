@@ -1,0 +1,20 @@
+{
+  "name": "@rutekit/compression",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Token-saver stages: TSC, DCP, RTK, Caveman and cache markers, applied to the canonical shape.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rutekit/contracts": "workspace:*",
+    "@rutekit/shared": "workspace:*",
+    "@rutekit/translator": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

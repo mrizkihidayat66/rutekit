@@ -1,0 +1,19 @@
+{
+  "name": "@rutekit/provider-registry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Declarative provider definitions: one file per provider, one generated index.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "generate": "bun run scripts/generate-index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rutekit/contracts": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output. `dist/` at the root is the standalone binary (D3); the console's
+# own `apps/web/dist` is ignored by the same rule.
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Test & coverage
+coverage/
+.vitest/
+
+# Local runtime data (SQLite, captures, generated assets)
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Environment. `.env` holds the key every stored credential is encrypted under
+# (the CLI generates it with `rutekit init`), so it is never committed.
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+bun-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Caches
+.vite/
+.eslintcache
+.turbo/
+
+# Claude Code local settings — machine-specific permission grants, not shared.
+.claude/settings.local.json

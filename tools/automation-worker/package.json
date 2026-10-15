@@ -1,0 +1,21 @@
+{
+  "name": "@rutekit/automation-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "rutekit's automation worker — a Node subprocess driving Playwright over stdio JSON-lines (ADR-0009).",
+  "exports": {
+    ".": "./src/main.ts",
+    "./flow": "./src/flow.ts",
+    "./driver": "./src/driver.ts",
+    "./drivers/fake": "./src/drivers/fake.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rutekit/contracts": "workspace:*",
+    "camoufox-js": "^0.12.1",
+    "playwright": "^1.64.0"
+  }
+}

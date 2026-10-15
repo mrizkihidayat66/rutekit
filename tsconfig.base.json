@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+
+    "paths": {
+      "@contracts": ["./packages/contracts/src/index.ts"],
+      "@contracts/*": ["./packages/contracts/src/*"],
+      "@registry": ["./packages/provider-registry/src/index.ts"],
+      "@registry/*": ["./packages/provider-registry/src/*"],
+      "@shared": ["./packages/shared/src/index.ts"],
+      "@shared/*": ["./packages/shared/src/*"],
+      "@translator": ["./packages/translator/src/index.ts"],
+      "@translator/*": ["./packages/translator/src/*"],
+      "@compression": ["./packages/compression/src/index.ts"],
+      "@compression/*": ["./packages/compression/src/*"],
+      "@web/*": ["./apps/web/src/*"],
+      "@server/*": ["./apps/server/src/*"]
+    }
+  }
+}

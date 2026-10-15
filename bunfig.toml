@@ -1,0 +1,11 @@
+# Bun configuration for the rutekit monorepo.
+# Docs: https://bun.sh/docs/runtime/bunfig
+
+[install]
+# Workspaces are declared in package.json ("workspaces").
+# Resolve to the newest version satisfying each range so the lockfile is the
+# single source of truth for what is actually installed.
+auto = "auto"
+
+# Tests are driven by Vitest so there is exactly one test story across the
+# monorepo; Bun's own runner stays out of the way.

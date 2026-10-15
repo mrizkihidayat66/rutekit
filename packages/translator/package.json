@@ -1,0 +1,19 @@
+{
+  "name": "@rutekit/translator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Translates between the five client surfaces and every provider wire family, through one canonical pivot.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rutekit/contracts": "workspace:*",
+    "@rutekit/shared": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

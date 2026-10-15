@@ -1,0 +1,32 @@
+{
+  "name": "@rutekit/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "rutekit backend \u2014 Bun + Hono. Control plane at /console/api, data plane at /v1.",
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "db:generate": "drizzle-kit generate",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "@rutekit/compression": "workspace:*",
+    "@rutekit/contracts": "workspace:*",
+    "@rutekit/provider-registry": "workspace:*",
+    "@rutekit/shared": "workspace:*",
+    "@rutekit/translator": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.13",
+    "pino": "^10.4.0",
+    "promptfoo": "^0.124.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11"
+  },
+  "exports": {
+    ".": "./src/main.ts"
+  }
+}

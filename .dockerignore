@@ -1,0 +1,42 @@
+# What must not reach the build context.
+#
+# The context is sent to the daemon before the build starts, so a `node_modules`
+# in it is tens of thousands of files transferred to be thrown away — the image
+# installs its own, from the lockfile, inside the build.
+
+node_modules
+**/node_modules
+
+# Build output. Both are produced inside the build stage; copying the host's in
+# would mean an image built from whatever the developer last compiled, which is
+# the one thing a container build exists to avoid.
+dist
+**/dist
+coverage
+.vitest
+
+# Runtime data, and whatever an operator's instance has accumulated.
+data
+**/data
+*.sqlite
+*.sqlite-*
+*.log
+
+# Secrets.
+.env
+.env.*
+!.env.example
+
+# VCS and editor noise.
+.git
+.gitignore
+.github
+.DS_Store
+.idea
+.vscode
+
+# Documentation and design references are not needed to build, and `docs/` is
+# several hundred kilobytes of Markdown that the build never reads.
+docs
+*.md
+!README.md

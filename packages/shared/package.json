@@ -1,0 +1,14 @@
+{
+  "name": "@rutekit/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure utilities with no I/O, shared by both sides of the boundary.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

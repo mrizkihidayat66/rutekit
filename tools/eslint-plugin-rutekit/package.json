@@ -1,0 +1,11 @@
+{
+  "name": "eslint-plugin-rutekit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local ESLint rules enforcing the rutekit design system (RULESET R3).",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}

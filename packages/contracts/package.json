@@ -1,0 +1,17 @@
+{
+  "name": "@rutekit/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared types and runtime schemas — the only bridge between frontend and backend.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.1.11"
+  }
+}

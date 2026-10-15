@@ -1,0 +1,637 @@
+/**
+ * The single source of truth for rutekit's visual language (PRD §7).
+ *
+ * Rules this file exists to enforce:
+ *   - Every colour, radius, duration and easing is a token. Nothing is hardcoded
+ *     in a component (RULESET R3.1, enforced by eslint-plugin-rutekit).
+ *   - Tokens live in Tailwind's `@theme` so they generate utilities *and* stay
+ *     readable as CSS custom properties — one definition, two consumers.
+ *   - Dark mode re-binds the same names under `[data-theme='dark']`, so no
+ *     component ever branches on theme.
+ */
+
+@import 'tailwindcss';
+
+/* Theme is driven by an attribute on <html>, not the OS media query, so the
+   user can override it and the switch can be animated. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* A checkbox that is neither on nor off — "some rows selected". Tailwind ships
+   `checked` but not `indeterminate`, and the state is a DOM property rather
+   than an attribute, so it needs the real pseudo-class. */
+@custom-variant indeterminate (&:indeterminate);
+
+@theme {
+  /* ---- Colour: light is the default binding ---- */
+  --color-page: #f7f3ed;
+  --color-surface-1: #fffdf8;
+  --color-surface-2: #fffefc;
+  --color-surface-3: #ffffff;
+  --color-border: #e4d7cb;
+  --color-border-strong: #d3c2b2;
+  --color-text: #2d2926;
+  --color-text-muted: #6b6259;
+  --color-text-subtle: #746b62;
+  --color-accent: #2e2e32;
+  --color-accent-contrast: #fffdf8;
+  --color-success: #4c9368;
+  /* Deeper than the other three fills because it is the only one that ever
+     becomes a *surface*: the danger button paints `--color-accent-contrast` on
+     top of it, and #c95145 carried that label at 4.35:1. As a graphic it stays
+     far above the 3:1 a bar or a dot needs. */
+  --color-danger: #b33d2c;
+  /* A shade darker than the #d97706 this started as, because that value sat at
+     2.88:1 against the page — just under the 3:1 a graphic needs (NFR-6). It is
+     the one semantic fill that failed, and it is only ever a graphic: a badge
+     tint, a meter's bar, a warning dot. `--color-warning-text` carries the words. */
+  --color-warning: #d37005;
+  --color-info: #3b82f6;
+  --color-focus: #2563eb;
+  --color-scrim: rgb(45 41 38 / 0.42);
+
+  /* Text-role bindings for the four semantic colours (NFR-6, RULESET R4.7).
+     Each colour above has to work as a graphic fill — a meter's bar, a chart
+     stroke, a status dot — where 3:1 is the bar, *and* as text, where it is
+     4.5:1. One value cannot clear both, and tuning the fill down for the sake of
+     the label would darken every chart in the console. So the fills stay as they
+     are and the text role gets its own, darker binding here. `text-*` utilities
+     on these names are the only ones that may carry a word.
+
+     Each is tuned against the tightest surface a label can land on, which is the
+     page itself with a chip's own tint over it — not the card, which is lighter.
+     A chip paints `bg-<name>/12` behind its word, and that tint pulls the
+     background toward the text colour, so the chip is always the worst case. */
+  --color-success-text: #357048;
+  --color-danger-text: #ae382d;
+  --color-warning-text: #965204;
+  --color-info-text: #1e56d6;
+
+  /* The Console Log's own surface: a recessed pane, denser and flatter than a
+     card, so the log reads as a stream rather than as content. Kept theme-aware
+     rather than always-dark so it does not become a black hole in light mode. */
+  --color-term-bg: #fbf8f3;
+  --color-term-fg: #4a443e;
+
+  /* Pool states (contracts accountStateSchema). One colour per state so the
+     Accounts page and every badge read the same. */
+  --color-state-active: #4c9368;
+  --color-state-banned: #8f2d24;
+  --color-state-disabled: #9a9188;
+  --color-state-exhausted: #7c3aed;
+  /* Kept equal to `--color-danger` rather than a shade of its own: the two mean
+     the same thing to an operator, and two reds that differ by a few percent read
+     as a mistake. It is only ever a dot or a chip tint, never a label surface, so
+     it inherits the deeper value the danger button forced. */
+  --color-state-error: #b33d2c;
+  --color-state-pending: #3b82f6;
+  --color-state-rate-limited: #d97706;
+
+  /* Same split as the four semantic colours above, for the pool's own seven. A
+     state chip carries a word, so it needs the text floor; the dot beside it is a
+     graphic and keeps the fill. `banned` was already dark enough as text and is
+     repeated rather than referenced, so every `-text` name stands on its own. */
+  --color-state-active-text: #357048;
+  --color-state-banned-text: #8f2d24;
+  --color-state-disabled-text: #6d645c;
+  --color-state-exhausted-text: #7637e1;
+  --color-state-error-text: #ae382d;
+  --color-state-pending-text: #1e56d6;
+  --color-state-rate-limited-text: #965204;
+
+  /* ---- Radius ---- */
+  --radius-control: 10px;
+  --radius-card: 18px;
+  --radius-sidebar: 20px;
+  --radius-key: 4px;
+  --radius-pill: 9999px;
+
+  /* ---- Typography ---- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Code', monospace;
+  --font-head: 'Space Grotesk', 'Inter', sans-serif;
+
+  /* ---- Elevation ---- */
+  --shadow-card: 0 1px 2px rgb(45 41 38 / 0.04), 0 8px 24px -12px rgb(45 41 38 / 0.12);
+  --shadow-popover: 0 2px 6px rgb(45 41 38 / 0.06), 0 16px 40px -16px rgb(45 41 38 / 0.22);
+  --shadow-dialog: 0 4px 12px rgb(45 41 38 / 0.08), 0 32px 72px -24px rgb(45 41 38 / 0.32);
+  --shadow-glow: 0 0 0 1px var(--color-border), 0 0 32px -8px rgb(59 130 246 / 0.35);
+
+  /* ---- Motion ---- */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Named animations. Components use `animate-*`; nothing writes keyframes
+     inline, and nothing writes a raw duration. */
+  --animate-fade-in: fade-in var(--dur-macro) var(--ease-out) both;
+  --animate-fade-out: fade-out var(--dur-micro) var(--ease-in-out) both;
+  --animate-scale-in: scale-in var(--dur-macro) var(--ease-spring) both;
+  --animate-slide-up: slide-up var(--dur-macro) var(--ease-spring) both;
+  --animate-slide-in-right: slide-in-right var(--dur-macro) var(--ease-spring) both;
+  --animate-slide-out-right: slide-out-right var(--dur-micro) var(--ease-in-out) both;
+  --animate-slide-in-left: slide-in-left var(--dur-macro) var(--ease-spring) both;
+  --animate-slide-out-left: slide-out-left var(--dur-micro) var(--ease-in-out) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-pulse-soft: pulse-soft 2.4s var(--ease-in-out) infinite;
+  --animate-spin-slow: spin 1.4s linear infinite;
+  --animate-caret: caret-blink 1s steps(2, start) infinite;
+  --animate-rise: rise var(--dur-slow) var(--ease-spring) both;
+  /* A newly arrived log line settles in rather than popping in. */
+  --animate-flash: flash var(--dur-slow) var(--ease-out) both;
+  /* A highlight sweeping a credit row that is waiting on a reset. */
+  --animate-sheen: sheen 2.8s var(--ease-in-out) infinite;
+
+  /* ---- Layering ---- */
+  --z-index-base: 0;
+  --z-index-sticky: 20;
+  --z-index-drawer: 40;
+  --z-index-dialog: 50;
+  --z-index-popover: 60;
+  --z-index-toast: 70;
+  --z-index-command: 80;
+  --z-index-tooltip: 90;
+
+  /* ---- Layout ---- */
+  --spacing-sidebar: 272px;
+  --spacing-topbar: 56px;
+  --spacing-footer: 36px;
+}
+
+/* Durations are not a Tailwind namespace, but they are tokens all the same —
+   components reference them through the `--animate-*` definitions above or via
+   `duration-(--dur-micro)` in the rare case a transition needs one directly. */
+:root {
+  --dur-fast: 90ms;
+  --dur-micro: 150ms;
+  --dur-macro: 250ms;
+  --dur-slow: 400ms;
+
+  --glass-blur: 18px;
+  --glass-bg: rgb(255 253 248 / 0.72);
+  --glass-border: rgb(228 215 203 / 0.7);
+}
+
+[data-theme='dark'] {
+  --color-page: #08080b;
+  --color-surface-1: #1c1c20;
+  --color-surface-2: #222228;
+  --color-surface-3: #2a2a31;
+  --color-border: #33333b;
+  --color-border-strong: #45454f;
+  --color-text: #f5f5f7;
+  --color-text-muted: #a1a1ab;
+  --color-text-subtle: #93939c;
+  --color-accent: #f5f5f7;
+  --color-accent-contrast: #08080b;
+  --color-success: #5fb07c;
+  --color-danger: #e0685a;
+  --color-warning: #f0a33c;
+  --color-info: #6aa1f8;
+  --color-focus: #7aa8ff;
+  --color-scrim: rgb(0 0 0 / 0.62);
+
+  /* The dark half of the same split, solved the same way — against the *lightest*
+     surface a label can land on, which here is surface-3 with the chip's own tint
+     over it. The dark page is the opposite extreme from the light one: text is
+     light and surfaces are dark, so the chip's tint lifts the background toward
+     the label and eats the margin, exactly as it did in light mode. `danger` was
+     the worst offender (#e0685a lands at 4.39:1 on that tint), so all four are
+     solved together rather than one at a time.
+
+     Kept explicit rather than omitted so every `-text` name resolves in both
+     themes and a component never has to ask which theme it is in. */
+  --color-success-text: #67b483;
+  --color-danger-text: #ef9384;
+  --color-warning-text: #f0a33c;
+  --color-info-text: #71a5f8;
+
+  --color-term-bg: #131316;
+  --color-term-fg: #c9c9d1;
+
+  --color-state-active: #5fb07c;
+  --color-state-banned: #c25a4e;
+  --color-state-disabled: #71717a;
+  --color-state-exhausted: #a78bfa;
+  --color-state-error: #e0685a;
+  --color-state-pending: #6aa1f8;
+  --color-state-rate-limited: #f0a33c;
+
+  /* The pool's seven, solved against the same surface-3-plus-tint case. `error`
+     and `rate_limited` already clear it and repeat their fill value; the other
+     five are a lighter tint of the same hue. `disabled` is deliberately the
+     dimmest of the seven — it is the one state that means "not in play" — but it
+     still carries a word in a chip, so it is held to the same floor. */
+  --color-state-active-text: #67b483;
+  --color-state-banned-text: #da887e;
+  --color-state-disabled-text: #9d9da5;
+  --color-state-exhausted-text: #ae94fa;
+  --color-state-error-text: #ef9384;
+  --color-state-pending-text: #71a5f8;
+  --color-state-rate-limited-text: #f0a33c;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-popover: 0 2px 6px rgb(0 0 0 / 0.45), 0 16px 40px -16px rgb(0 0 0 / 0.7);
+  --shadow-dialog: 0 4px 12px rgb(0 0 0 / 0.5), 0 32px 72px -24px rgb(0 0 0 / 0.8);
+  --shadow-glow: 0 0 0 1px var(--color-border), 0 0 40px -8px rgb(122 168 255 / 0.4);
+
+  --glass-bg: rgb(28 28 32 / 0.7);
+  --glass-border: rgb(69 69 79 / 0.6);
+
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------------ *
+ * Customization (B6)
+ *
+ * The operator's appearance settings are attributes on <html> and a handful of
+ * custom properties, never component state. That is the whole reason a card in
+ * the provider list becomes translucent when a background is set: the card asks
+ * for `--color-surface-1` and never learns that anything changed. The record
+ * behind those attributes comes from the API rather than client-side storage, so
+ * appearance settings follow the instance instead of the browser profile.
+ *
+ * The media layer itself is `AppearanceLayer`; everything below is what it turns
+ * on.
+ * ------------------------------------------------------------------ */
+
+/* Nothing is painted unless there is media to paint, so a console with
+   `backgroundKind: 'none'` keeps its opaque page and its opaque cards. */
+html[data-app-background='true'] {
+  /* The canvas keeps the page colour — with the body transparent, this is what
+     shows in the gap the media layer does not cover while it loads. */
+  background-color: var(--color-page);
+}
+
+html[data-app-background='true'] body {
+  background-color: transparent;
+}
+
+/* Glass. Depth moves the alpha, not the blur radius: the blur is the same
+   `backdrop-filter` on every surface, and a deeper setting lets more of the
+   background through it. Alpha rises with depth number because a surface that
+   is *more* transparent needs its own tint to stay legible — the pair moves
+   together, so depth 3 is both the most see-through and the most tinted. */
+html[data-app-background='true'][data-glass-enabled='true'] {
+  --glass-surface-1: 0.72;
+  --glass-surface-2: 0.8;
+  --glass-surface-3: 0.9;
+}
+
+html[data-app-background='true'][data-glass-enabled='true'][data-glass-depth='1'] {
+  --glass-surface-1: 0.82;
+  --glass-surface-2: 0.88;
+  --glass-surface-3: 0.95;
+}
+
+html[data-app-background='true'][data-glass-enabled='true'][data-glass-depth='3'] {
+  --glass-surface-1: 0.58;
+  --glass-surface-2: 0.68;
+  --glass-surface-3: 0.8;
+}
+
+html[data-app-background='true'][data-glass-enabled='true'] {
+  --color-surface-1: rgb(255 253 248 / var(--glass-surface-1));
+  --color-surface-2: rgb(255 254 252 / var(--glass-surface-2));
+  --color-surface-3: rgb(255 255 255 / var(--glass-surface-3));
+}
+
+html[data-theme='dark'][data-app-background='true'][data-glass-enabled='true'] {
+  --color-surface-1: rgb(28 28 32 / var(--glass-surface-1));
+  --color-surface-2: rgb(34 34 40 / var(--glass-surface-2));
+  --color-surface-3: rgb(42 42 49 / var(--glass-surface-3));
+}
+
+/* ------------------------------------------------------------------ *
+ * Base layer
+ * ------------------------------------------------------------------ */
+
+@layer base {
+  html {
+    /* Dense "pro tool" rhythm (PRD §7.2). Everything rem-based scales with it. */
+    font-size: 14px;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-page);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Animated theme switch (PRD §7.2 rule 6). Suppressed while
+       `.theme-switching` is absent so the first paint never animates from an
+       unstyled state. */
+    transition: none;
+  }
+
+  html.theme-ready body {
+    transition:
+      background-color var(--dur-macro) var(--ease-out),
+      color var(--dur-macro) var(--ease-out);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-head);
+    font-weight: 600;
+    letter-spacing: -0.011em;
+  }
+
+  /* Numbers that line up in columns: tables, metrics, clocks, token counts. */
+  .tnum,
+  table,
+  time,
+  output {
+    font-variant-numeric: tabular-nums;
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-focus) 26%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+
+  /* Scrollbars are visible where they matter and invisible where they don't. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Keyframes
+ * ------------------------------------------------------------------ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes caret-blink {
+  from,
+  to {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes flash {
+  from {
+    background-color: var(--color-surface-3);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes sheen {
+  from {
+    background-position: 160% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Composed utilities
+ * ------------------------------------------------------------------ */
+
+@utility glass {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  border: 1px solid var(--glass-border);
+}
+
+/* The operator's background media, pinned behind every in-flow element. A
+   negative z-index is what lets the shell stay unaware of it: the layer paints
+   above the canvas and below everything else, so no card needs a stacking
+   context or a z-index of its own. */
+@utility app-background {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Two soft washes rather than one, because a single radial reads as a spotlight
+   in a corner; opposed corners read as ambient light. Tinted with `info`, the
+   same blue `--shadow-glow` already uses, so the glow and the glow shadow on a
+   focused card belong to the same family. */
+@utility ambient-glow {
+  background-image:
+    radial-gradient(
+      58% 48% at 12% 0%,
+      color-mix(in oklab, var(--color-info) 22%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      52% 44% at 92% 100%,
+      color-mix(in oklab, var(--color-info) 15%, transparent),
+      transparent 74%
+    );
+}
+
+@utility card-surface {
+  background-color: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* One definition of "faint hairline" so dividers never drift apart. */
+@utility hairline {
+  border-color: var(--color-border);
+}
+
+/* Loading placeholder. Defined here rather than as a utility chain in the
+   component so the gradient's colours stay tokens. */
+@utility skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-3) 50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+  border-radius: var(--radius-control);
+}
+
+/* The highlight that sweeps a credit row while it waits on its reset. Drawn as
+   an overlay rather than on the row itself so the row's text stays crisp. */
+@utility sheen {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in oklab, var(--color-accent) 22%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 55% 100%;
+  background-repeat: no-repeat;
+  animation: var(--animate-sheen);
+}
+
+/* A metric readout: large, tabular, tightly tracked. */
+@utility metric {
+  font-family: var(--font-head);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* The Console Log's recessed pane. One definition so the header, the stream and
+   the empty state all sit on the same surface. */
+@utility terminal-surface {
+  background-color: var(--color-term-bg);
+  color: var(--color-term-fg);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+}

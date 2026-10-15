@@ -1,0 +1,65 @@
+# The gates, run on every push and pull request (ROADMAP D3).
+#
+# **This has never run.** There is no git remote on the machine this was written
+# on, so the workflow is unverified — which is worth saying out loud rather than
+# letting a green checkmark be assumed. What *is* verified is the script it calls:
+# `bun run ci` runs the same gates locally and passes.
+#
+# The workflow is deliberately thin for that reason. Every step is a script from
+# `package.json`, so CI cannot drift from what a developer runs — the alternative,
+# spelling the commands out here, is two lists that have to be kept in step by
+# hand and silently disagree the first time someone forgets.
+#
+# `test:coverage` is a separate step rather than part of `ci` so the coverage
+# table appears in the log where a reviewer can see it, and so a threshold failure
+# is attributable to coverage rather than to the test run.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Matches `packageManager` in the root package.json. A different Bun
+          # would be a different `bun:sqlite`, and the persistence tests assert
+          # driver behaviour rather than mocking it.
+          bun-version: 1.4.2
+
+      # `--frozen-lockfile` so a dependency added locally but not committed fails
+      # here rather than resolving to something nobody chose.
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun run test
+
+      # The gate NFR-2 is measured by. Fails below 85% lines on apps/server/src.
+      - name: Coverage
+        run: bun run test:coverage
+
+      # The console and the standalone binary both have to build. A typecheck does
+      # not catch a bundling failure, and the binary is what a distribution is.
+      - name: Build
+        run: bun run build

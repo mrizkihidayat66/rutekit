@@ -1,0 +1,5 @@
+{
+  "//": "Root config covers root-level tooling configs. Each workspace owns its own tsconfig.json and is typechecked independently via `bun run typecheck`.",
+  "extends": "./tsconfig.base.json",
+  "include": ["vitest.config.ts"]
+}

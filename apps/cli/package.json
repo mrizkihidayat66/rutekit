@@ -1,0 +1,16 @@
+{
+  "name": "rutekit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted AI router — the CLI that installs and starts an instance.",
+  "bin": {
+    "rutekit": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rutekit/server": "workspace:*"
+  }
+}
