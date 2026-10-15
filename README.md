@@ -1,5 +1,8 @@
 # rutekit
 
+[![CI](https://github.com/mrizkihidayat66/rutekit/actions/workflows/ci.yml/badge.svg)](https://github.com/mrizkihidayat66/rutekit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Self-hosted AI router and gateway. One OpenAI-compatible endpoint in front of many provider
 accounts.
 
