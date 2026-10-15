@@ -34,8 +34,8 @@ a test rather than by convention. On top of the routing core it adds a set of su
 routers leave out: multi-variant benchmarking, a video studio, and model-authenticity
 verification.
 
-PHASE A–C are complete and PHASE D is in progress; see [ROADMAP](plan/ROADMAP.md) for what is
-still open.
+All four phases are complete. See [ROADMAP](plan/ROADMAP.md) for the plan and for the work
+that is still open.
 
 ## Full Document Map
 
