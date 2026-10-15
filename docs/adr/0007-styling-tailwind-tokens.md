@@ -4,7 +4,7 @@ Status: **Accepted** · Date: 2026-10-11 · Related decisions: D7, D14
 
 ## Context
 
-The best UI/UX craft in this space carries one real inherited problem: **Tailwind and
+This space has one recurring inherited problem: **Tailwind and
 bespoke CSS living side by side with no clear boundary** — a landing page using
 utilities, a console using ~4,000 lines of semantic CSS — plus a lot of inline
 `style={{}}` in TSX. Mixing utilities with inline styles is a common pattern in the same

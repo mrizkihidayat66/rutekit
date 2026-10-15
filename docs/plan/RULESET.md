@@ -1,7 +1,7 @@
 # RULESET — `rutekit`
 
 **Hard rules & enforcement checklist**
-Version: 1.0 · Date: 2026-10-11 · Companion document [CONTRIBUTING.md](CONTRIBUTING.md)
+Version: 0.1.0 · Last updated: 2026-10-15 · Companion document [CONTRIBUTING.md](CONTRIBUTING.md)
 
 > This document is the **quick-scan summary** of the binding rules.
 > If it conflicts with [CONTRIBUTING.md](CONTRIBUTING.md), CONTRIBUTING wins because it carries the rationale.

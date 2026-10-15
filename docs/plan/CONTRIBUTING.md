@@ -1,8 +1,9 @@
 # CONTRIBUTING — Coding & Contribution Guidelines for `rutekit`
 
-Version: 1.0 · Date: 2026-10-11
+Version: 0.1.0 · Last updated: 2026-10-15
 
-This document is the **supreme law** for `rutekit` code. If anything conflicts with it, this document wins.
+This document is the **authoritative reference** for `rutekit` code. Where documents
+conflict, this one wins on matters of process.
 
 ---
 

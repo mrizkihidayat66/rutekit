@@ -1,7 +1,7 @@
 # ROADMAP — `rutekit`
 
 **Staged build plan**
-Version: 1.0 · Date: 2026-10-11
+Version: 0.1.0 · Last updated: 2026-10-15
 
 ---
 
@@ -51,7 +51,7 @@ gate A      gate B      gate C      gate D
 - [x] Styled primitives on top of Radix: `Button`, `Input`, `Textarea`, `Select`, `Switch`, `Slider`, `Card`, `Badge`, `Tabs`, `Tooltip`, `Popover`, `Dialog`, `Drawer`, `State` (empty/loading/error), `Skeleton`.
 - [x] Shared overlay hooks: `usePresence`, `useModalFocus`, `useReducedMotion`.
 - [x] Motion tokens: `--ease-spring`, `--dur-micro`, `--dur-macro` + named keyframes.
-- [x] **Animated theme transitions** (beyond comparable routers).
+- [x] **Animated theme transitions** on the light/dark switch, suppressed until first paint.
 - [x] Design system showcase page (`/dev/design`) — not a product page, just an internal tool.
 
 ### A4. Shell & Routing
@@ -358,9 +358,9 @@ A page may only be marked done if **all seven** criteria are met:
 >
 > A `/v1/chat/completions` turn **has** since been run against a real provider: credentials were
 > injected into a live instance and a streaming turn returned 34 SSE frames with a 942 ms
-> time-to-first-token, correctly assembled. Two of the three items below it are still unrun — bulk
-> import against a real provider, and a verification verdict measured from a real model — because
-> neither was exercised when that instance was available.
+> time-to-first-token, correctly assembled. Two items from the original list are still unrun —
+> bulk import against a real provider, and a verification verdict measured from a real model —
+> because neither was exercised while that instance was available.
 
 ---
 

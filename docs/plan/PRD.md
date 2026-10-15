@@ -1,20 +1,24 @@
 # PRD — `rutekit`
 
 **Product Requirements Document**
-Version: 1.0 · Date: 2026-10-11
+Version: 0.1.0 · Last updated: 2026-10-15
 
 ---
 
 ## 1. Executive Summary
 
-`rutekit` is a **self-hosted AI router & gateway**: one OpenAI-compatible endpoint that aggregates many AI provider accounts behind it. It unifies the most complete provider catalog, the most mature account automation, rich pool tooling, and the strongest UI/UX craft — rebuilt end-to-end in TypeScript.
+`rutekit` is a **self-hosted AI router & gateway**: one OpenAI-compatible endpoint that
+aggregates many AI provider accounts behind it. Four things carry the weight: a declarative
+provider catalog, account automation that can sign in and import in bulk, an account pool
+with quota tracking, and a console built on one styling strategy — all end to end in
+TypeScript.
 
 **What sets it apart from comparable routers:**
 
-1. **The frontend is finished completely before the backend** — every page perfect with mock data, and only then is real functionality wired in.
+1. **The frontend is finished completely before the backend** — every page complete against mock data, and only then is real functionality wired in.
 2. **The frontend/backend split is mechanically enforced** — a test fails if the frontend touches the backend.
-3. **Features that exist nowhere else** — dot trick, expiry & TPS per API key, multi-variant benchmark, video studio, model authenticity verification as a complete experience.
-4. **UI/UX beyond comparable routers** — one styling strategy (not two mixed idioms), animated theme transitions, no inline styles.
+3. **Surfaces most routers leave out** — dot trick, expiry & TPS per API key, multi-variant benchmark, video studio, and model-authenticity verification, each built out rather than stubbed.
+4. **One styling strategy, enforced** — Tailwind as the substrate and CSS custom properties as tokens, no inline styles, and an animated theme switch.
 
 ### 1.1 Problems Solved
 
@@ -384,7 +388,8 @@ _(27 pages. `/providers/:id` is reached from the catalog, not from the rail; bot
 3. **Root font-size 14px** for the dense "pro tool" feel.
 4. **Container queries** over media queries for component responsiveness.
 5. **Universal `prefers-reduced-motion`** — all durations → 0.01ms.
-6. **Animated theme transitions** — this is where it goes beyond comparable routers.
+6. **Animated theme transitions** on the light/dark switch, suppressed until the first
+   paint is styled so nothing animates from an unstyled state.
 7. **No inline `style={{}}`.** Everything via classes or CSS custom properties.
 
 ### 7.3 Shared Overlay Pattern
