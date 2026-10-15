@@ -1,18 +1,18 @@
 # The gates, run on every push and pull request (ROADMAP D3).
 #
-# **This has never run.** There is no git remote on the machine this was written
-# on, so the workflow is unverified — which is worth saying out loud rather than
-# letting a green checkmark be assumed. What *is* verified is the script it calls:
-# `bun run ci` runs the same gates locally and passes.
-#
-# The workflow is deliberately thin for that reason. Every step is a script from
-# `package.json`, so CI cannot drift from what a developer runs — the alternative,
-# spelling the commands out here, is two lists that have to be kept in step by
-# hand and silently disagree the first time someone forgets.
+# Every step is a script from `package.json`, so CI cannot drift from what a
+# developer runs — the alternative, spelling the commands out here, is two lists
+# that have to be kept in step by hand and silently disagree the first time
+# someone forgets.
 #
 # `test:coverage` is a separate step rather than part of `ci` so the coverage
 # table appears in the log where a reviewer can see it, and so a threshold failure
 # is attributable to coverage rather than to the test run.
+#
+# It earned its place on its first run: typecheck failed on a clean checkout
+# because `.gitignore` was excluding `apps/web/src/data/`, nine source files that
+# were present locally and therefore invisible to a local check. See the
+# `.gitignore` comment.
 
 name: CI
 
@@ -45,6 +45,17 @@ jobs:
       # here rather than resolving to something nobody chose.
       - name: Install
         run: bun install --frozen-lockfile
+
+      # The automation tests drive a real Chromium against a local fixture, which
+      # is the only way to test a sign-in flow — a mocked browser would test the
+      # mock. A runner has no browsers cached, so they are fetched here.
+      #
+      # Run from the worker's own directory so `playwright` resolves to the
+      # version the lockfile pins. From the root, `bunx playwright` finds no local
+      # copy and downloads whatever is latest instead.
+      - name: Install the browser the automation tests drive
+        working-directory: tools/automation-worker
+        run: bunx playwright install --with-deps chromium
 
       - name: Typecheck
         run: bun run typecheck
