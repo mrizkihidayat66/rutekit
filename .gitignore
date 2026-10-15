@@ -14,8 +14,11 @@ out/
 coverage/
 .vitest/
 
-# Local runtime data (SQLite, captures, generated assets)
-data/
+# Local runtime data (SQLite, captures, generated assets).
+# Anchored to the root on purpose: a bare `data/` matches at any depth, and it was
+# silently excluding `apps/web/src/data/` — nine real source files — so a fresh clone
+# could not build the frontend.
+/data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
