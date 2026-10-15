@@ -20,7 +20,7 @@ Two other findings surfaced while working:
 - **The binary fails to boot.** `repoRoot()` counts four levels up from `import.meta.dir`,
   but `bun build --compile` reports that directory as a path inside a virtual filesystem
   (`B:/~BUN/root`), so the result is `\` and `mkdir('\')` throws `EPERM`.
-- **There is no git remote**, so CI has nothing to run against.
+- **There was no git remote**, so CI had nothing to run against.
 
 ## Decision
 
@@ -120,9 +120,10 @@ runs the same gates locally. The alternative — writing the commands inside the
 is two lists that have to be kept aligned by hand and that quietly disagree the moment
 someone forgets.
 
-**The workflow has never been run**, because there is no git remote on this machine. That
-is stated in the file's header rather than left to be assumed green. What **has** been
-verified is the scripts: `bun run ci` passes locally.
+**The workflow had never been run when this was written**, because there was no git remote
+on this machine. What had been verified was the scripts: `bun run ci` passes locally.
+
+It has since been run against a clean checkout, and it passed. See "Resolved Since" below.
 
 ## Consequences
 
@@ -142,8 +143,8 @@ verified is the scripts: `bun run ci` passes locally.
 
 **Negative / risk**
 
-- **CI has never been run.** There is no remote, so the workflow is unproven. The scripts
-  are not.
+- **The Docker image has still never been built to completion.** See the next bullet; the
+  CI gap that sat beside this one is closed.
 - **The Docker image was never finished building, and the container was never run.** Not
   because of the Dockerfile: this machine has no usable Docker daemon. The active context
   points at a remote daemon over SSH (a remote host), and that host became unreachable
@@ -169,6 +170,26 @@ verified is the scripts: `bun run ci` passes locally.
 - **`--host 0.0.0.0` is the default inside the container.** Right there (the port is only
   reachable through port mapping), but wrong if someone copies that `ENV` outside the
   container.
+
+## Resolved Since
+
+**CI has now run, and it passed.** The repository was published, `.github/workflows/ci.yml`
+ran on the first push, and after two fixes it completed every step — install, typecheck,
+lint, test, coverage and build — in 4m34s.
+
+It failed the first two times, and both failures were worth the workflow existing:
+
+1. **Typecheck failed on a clean checkout.** A bare `data/` in `.gitignore` matches at any
+   depth, so it was excluding `apps/web/src/data/` — nine source files, the console's data
+   layer. They were on disk locally, so `bun run check` passed and `git status` said nothing.
+   Anchored to `/data/`, the rule now covers only the runtime directory it was written for.
+2. **The automation tests had no browser.** They drive a real Chromium against a local
+   fixture, and a fresh runner has none cached. The workflow installs Chromium now, from the
+   worker's own directory so it resolves the version the lockfile pins.
+
+Neither defect was visible from inside the development machine, which is the argument for
+running the gates on a clean checkout rather than trusting a local pass. The Docker image is
+still unverified — that one needs a Docker daemon, not a runner.
 
 ## Rejected Alternatives
 

@@ -417,22 +417,26 @@ A page may only be marked done if **all seven** criteria are met:
 - [x] CI: `.github/workflows/ci.yml` (typecheck, lint, test, coverage gate, build) + a local `bun run ci` that runs the same gates. Every step is a script from `package.json`, so CI cannot drift from what a developer runs.
 - [x] **ADR-0037** records six decisions, including the ones that cannot be verified.
 
-> **What cannot be verified here, and two of them matter:**
+> **What cannot be verified here:**
 >
-> 1. **The Docker image has never finished building.** This machine has no usable Docker
->    daemon: the active context points at a remote daemon over SSH, which became
->    unreachable mid-build, and the local daemon is not running. What is proven is the
->    `bun install` step inside the image — that is where `better-sqlite3` fails without a
->    toolchain, and the fix makes it finish (1242 packages, 204 seconds). **The container has never been run.**
-> 2. **`.github/workflows/ci.yml` has never been run** — there is no git remote on this
->    machine. What is verified is the scripts: `bun run ci` passes locally.
+> **The Docker image has never finished building.** This machine has no usable Docker
+> daemon: the active context points at a remote daemon over SSH, which became
+> unreachable mid-build, and the local daemon is not running. What is proven is the
+> `bun install` step inside the image — that is where `better-sqlite3` fails without a
+> toolchain, and the fix makes it finish (1242 packages, 204 seconds). **The container
+> has never been run.**
 >
+> CI was on this list and no longer is. The repository was published, the workflow ran,
+> and it failed twice before it passed — on a clean checkout it found nine source files
+> excluded by `.gitignore`, and then a missing browser for the automation tests. Neither
+> was visible from this machine. It now completes every step in about four and a half
+> minutes.
 > There is also no installer that downloads a runtime, and no auto-update: `bunx rutekit`
 > assumes Bun is installed.
 
 ### D4. Documentation — done
 
-- [x] `README.md` — rewritten. It previously read "planning stage, implementation not started" even though PHASE C was finished, and counted "20 pages" when there were 27. It now states the real status, the commands that can be run, and — most importantly — the **"Not finished, declared open"** section.
+- [x] `README.md` — rewritten. It previously read "planning stage, implementation not started" even though PHASE C was finished, and counted "20 pages" when there were 27. It now states what the project is, how to run it, how to call it, and where the depth lives, and leaves the open items to this document.
 - [x] `ARCHITECTURE.md` — new. The monorepo and why `apps/` differs from `packages/`, the machine-enforced boundaries, the flow of one `/v1` request with its three invariants, the composition root and middleware order, boot/shutdown, persistence, pool, and test architecture.
 - [x] `AGENTS.md` — new. Commands, machine-enforced rules, and **14 pitfalls** each of which has actually bitten — from the bun:sqlite `$` sigil to `MSYS_NO_PATHCONV` in Git Bash.
 - [x] `CONTRIBUTING.md` — existed since PHASE A, untouched.
@@ -463,8 +467,9 @@ A page may only be marked done if **all seven** criteria are met:
 > against a 1500 ms budget, NFR-6 (contrast) is machine-checked from the tokens with one
 > recorded gap, NFR-9 (bundle) is measured at 193 KB of 300 KB. Cross-browser is verified on
 > Chromium and WebKit; Firefox could not be launched here and is stated as untested. Manual
-> keyboard testing needs a human and is not claimed. CI has never run because the GitHub
-> repository was removed before it could; `bun run ci` passes locally.
+> keyboard testing needs a human and is not claimed. CI is green on a clean checkout: all
+> seven steps pass on GitHub Actions, and getting there caught two defects a local run
+> could not see. The Docker image remains the one unverified deliverable.
 
 ---
 
