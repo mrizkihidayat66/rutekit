@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-rutekit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Local ESLint rules enforcing the rutekit design system (RULESET R3).",

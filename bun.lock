@@ -24,7 +24,7 @@
     },
     "apps/cli": {
       "name": "rutekit",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
         "rutekit": "./src/index.ts",
       },
@@ -34,7 +34,7 @@
     },
     "apps/server": {
       "name": "@rutekit/server",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@hono/zod-validator": "^0.9.1",
         "@rutekit/compression": "workspace:*",
@@ -54,7 +54,7 @@
     },
     "apps/web": {
       "name": "@rutekit/web",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@ai-sdk/react": "^4.0.140",
         "@radix-ui/react-checkbox": "^1.3.3",
@@ -109,7 +109,7 @@
     },
     "packages/compression": {
       "name": "@rutekit/compression",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@rutekit/contracts": "workspace:*",
         "@rutekit/shared": "workspace:*",
@@ -119,14 +119,14 @@
     },
     "packages/contracts": {
       "name": "@rutekit/contracts",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "zod": "^4.1.11",
       },
     },
     "packages/provider-registry": {
       "name": "@rutekit/provider-registry",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@rutekit/contracts": "workspace:*",
         "zod": "^4.6.7",
@@ -134,11 +134,11 @@
     },
     "packages/shared": {
       "name": "@rutekit/shared",
-      "version": "0.0.0",
+      "version": "0.1.0",
     },
     "packages/translator": {
       "name": "@rutekit/translator",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@rutekit/contracts": "workspace:*",
         "@rutekit/shared": "workspace:*",
@@ -147,7 +147,7 @@
     },
     "tools/automation-worker": {
       "name": "@rutekit/automation-worker",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@rutekit/contracts": "workspace:*",
         "camoufox-js": "^0.12.1",
@@ -156,7 +156,7 @@
     },
     "tools/eslint-plugin-rutekit": {
       "name": "eslint-plugin-rutekit",
-      "version": "0.0.0",
+      "version": "0.1.0",
     },
   },
   "packages": {

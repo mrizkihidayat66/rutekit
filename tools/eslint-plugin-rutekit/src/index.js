@@ -196,7 +196,7 @@ const noInlineStyle = {
 export default {
   meta: {
     name: 'eslint-plugin-rutekit',
-    version: '0.0.0',
+    version: '0.1.0',
   },
   rules: {
     'no-hardcoded-color': makeClassStringRule({

@@ -1,6 +1,6 @@
 {
   "name": "@rutekit/provider-registry",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Declarative provider definitions: one file per provider, one generated index.",

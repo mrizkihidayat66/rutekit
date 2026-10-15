@@ -1,6 +1,6 @@
 {
   "name": "@rutekit/contracts",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Shared types and runtime schemas — the only bridge between frontend and backend.",

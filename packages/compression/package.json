@@ -1,6 +1,6 @@
 {
   "name": "@rutekit/compression",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Token-saver stages: TSC, DCP, RTK, Caveman and cache markers, applied to the canonical shape.",

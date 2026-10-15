@@ -1,6 +1,6 @@
 {
   "name": "@rutekit/web",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "rutekit frontend — React 19 + Vite. Never imports backend code (boundary test enforces it).",

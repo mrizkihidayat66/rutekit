@@ -1,6 +1,6 @@
 {
   "name": "@rutekit/automation-worker",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "rutekit's automation worker — a Node subprocess driving Playwright over stdio JSON-lines (ADR-0009).",

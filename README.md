@@ -85,15 +85,16 @@ non-root with `tini` as PID 1. See [ADR-0037](docs/adr/0037-distribution.md).
 
 ## Documentation
 
-| Document                                               | Contents                                     |
-| ------------------------------------------------------ | -------------------------------------------- |
-| [ARCHITECTURE.md](ARCHITECTURE.md)                     | How the pieces fit together, and why         |
-| [docs/plan/ROADMAP.md](docs/plan/ROADMAP.md)           | The staged build plan and what is still open |
-| [docs/plan/PRD.md](docs/plan/PRD.md)                   | The full product requirements                |
-| [docs/adr/README.md](docs/adr/README.md)               | Architecture Decision Records                |
-| [docs/plan/RULESET.md](docs/plan/RULESET.md)           | The rules that are not negotiable            |
-| [docs/plan/CONTRIBUTING.md](docs/plan/CONTRIBUTING.md) | Coding and contribution guidelines           |
-| [AGENTS.md](AGENTS.md)                                 | Working rules for AI agents and humans       |
+| Document                                     | Contents                                          |
+| -------------------------------------------- | ------------------------------------------------- |
+| [ARCHITECTURE.md](ARCHITECTURE.md)           | How the pieces fit together, and why              |
+| [docs/plan/ROADMAP.md](docs/plan/ROADMAP.md) | The staged build plan and what is still open      |
+| [docs/plan/PRD.md](docs/plan/PRD.md)         | The full product requirements                     |
+| [docs/adr/README.md](docs/adr/README.md)     | Architecture Decision Records                     |
+| [docs/plan/RULESET.md](docs/plan/RULESET.md) | The rules that are not negotiable                 |
+| [CONTRIBUTING.md](CONTRIBUTING.md)           | How to contribute                                 |
+| [SECURITY.md](SECURITY.md)                   | Reporting a vulnerability, and the security model |
+| [AGENTS.md](AGENTS.md)                       | Working rules for AI agents and humans            |
 
 Each top-level folder in `apps/server/src` has its own README describing what it owns and
 which invariants it must not break.

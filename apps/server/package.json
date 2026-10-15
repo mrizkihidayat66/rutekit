@@ -1,6 +1,6 @@
 {
   "name": "@rutekit/server",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "rutekit backend \u2014 Bun + Hono. Control plane at /console/api, data plane at /v1.",
