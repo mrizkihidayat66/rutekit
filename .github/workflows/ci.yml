@@ -63,6 +63,14 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # The console has to be built *before* the tests, not after. The bundle-size
+      # test measures what `index.html` pulls and skips itself when `apps/web/dist`
+      # is absent — which is correct locally, where a build may not have happened
+      # yet, but in CI it made the only machine check on the NFR-9 budget skip
+      # silently. A gate that skips is not a gate that passes.
+      - name: Build the console, so the bundle gate has something to measure
+        run: bun run build:web
+
       - name: Test
         run: bun run test
 
@@ -70,7 +78,12 @@ jobs:
       - name: Coverage
         run: bun run test:coverage
 
-      # The console and the standalone binary both have to build. A typecheck does
-      # not catch a bundling failure, and the binary is what a distribution is.
+      # The aggregate build, so the exact command a developer runs is the one CI
+      # verifies — the console was already built above for the bundle gate, and
+      # building it again is a few seconds for that guarantee.
+      #
+      # A typecheck does not catch a bundling failure, and the binary is what a
+      # distribution is: `--asset apps/web/dist` embeds the console, so this also
+      # proves the two halves fit together.
       - name: Build
         run: bun run build

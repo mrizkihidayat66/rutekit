@@ -97,6 +97,14 @@ coverage number jump up for no reason, suspect this.
 **Vitest does not write a coverage report when any test fails** — so a red suite means
 the coverage gate was not evaluated at all. A silent gate is not a gate that passed.
 
+**A `skipIf` guard can hide a gate from CI.** `apps/web/test/bundle-size.test.ts` skips
+itself when `apps/web/dist` is missing — reasonable locally, where a build may not have
+happened, but it meant CI ran the tests _before_ the build and the only machine check on
+the NFR-9 bundle budget silently skipped on every run. The local suite said 1650 passed
+while CI said 1645 passed and 5 skipped; that difference is the tell. CI now builds the
+console before the tests. When adding a conditional skip, ask what it does on a machine
+that has never run the setup step, and compare the skip counts between the two.
+
 **A new migration** requires `apps/server/test/persistence.test.ts` to be updated: the
 list of applied ids, `currentSchemaVersion`, the table list, and any new columns.
 

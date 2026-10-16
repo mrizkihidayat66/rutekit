@@ -467,9 +467,11 @@ A page may only be marked done if **all seven** criteria are met:
 > against a 1500 ms budget, NFR-6 (contrast) is machine-checked from the tokens with one
 > recorded gap, NFR-9 (bundle) is measured at 193 KB of 300 KB. Cross-browser is verified on
 > Chromium and WebKit; Firefox could not be launched here and is stated as untested. Manual
-> keyboard testing needs a human and is not claimed. CI is green on a clean checkout: all
-> seven steps pass on GitHub Actions, and getting there caught two defects a local run
-> could not see. The Docker image remains the one unverified deliverable.
+> keyboard testing needs a human and is not claimed. CI is green on a clean checkout: every
+> step passes on GitHub Actions, and getting there caught three defects a local run could not
+> see — nine source files hidden by an ignore rule, a missing browser for the automation
+> tests, and a bundle gate that had been skipping itself because the console was built after
+> the tests rather than before. The Docker image remains the one unverified deliverable.
 
 ---
 
