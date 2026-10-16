@@ -1,5 +1,5 @@
 import type { FinishReason, Usage } from '@contracts';
-import { createSseDecoder, type SseFrame } from '@shared';
+import { createUtf8SseDecoder, type SseFrame } from '@shared';
 
 import { asRecord } from '../blocks.ts';
 import type { CanonicalStreamEvent } from '../canonical-stream.ts';
@@ -20,7 +20,7 @@ import type { CodecContext, StreamDecoder } from './types.ts';
  * fragments, so it is written out as one `input_json_delta`.
  */
 export function createGoogleStreamDecoder(context: CodecContext): StreamDecoder {
-  const sse = createSseDecoder();
+  const sse = createUtf8SseDecoder();
   const builder = createBlockBuilder();
 
   let started = false;

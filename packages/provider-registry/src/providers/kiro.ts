@@ -22,9 +22,14 @@ export const kiro: ProviderManifestInput = {
   docsUrl: 'https://kiro.dev',
   freeTier: true,
 
+  // Its own wire family, and now a codec to go with it: the request is JSON of a
+  // shape nobody else uses and the response is AWS EventStream — length-prefixed
+  // binary, not SSE — so it is a family rather than an option on one of the
+  // three text dialects. `chatPath` stays null because the path carries the
+  // account's `profileArn` as a query parameter, which only the codec knows.
   endpoint: {
     baseUrl: 'https://runtime.us-east-1.kiro.dev',
-    wireFamily: 'custom',
+    wireFamily: 'kiro',
     chatPath: null,
   },
 

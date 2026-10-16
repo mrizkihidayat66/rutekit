@@ -14,6 +14,7 @@ import type { CodecContext } from '../src/codecs/types.ts';
 import { chooseRoute } from '../src/route.ts';
 import { clientSurfaceSchema, type ClientSurface } from '../src/surface.ts';
 import { codecFor, ingestRequest, renderResult } from '../src/index.ts';
+import { crc32 } from '../src/codecs/kiro-eventstream.ts';
 
 /**
  * The whole matrix, swept (A1, ROADMAP D1).
@@ -47,7 +48,62 @@ import { codecFor, ingestRequest, renderResult } from '../src/index.ts';
 const ids = createIdFactory((bytes) => new Uint8Array(bytes));
 
 function context(model = 'gpt-4o'): CodecContext {
-  return { now: () => 1_700_000_000, ids, model };
+  return { now: () => 1_700_000_000, ids, model, account: {} };
+}
+
+/**
+ * One AWS EventStream frame, exactly as the wire spells one.
+ *
+ * Hand-built here rather than produced by the decoder under test: a fixture made
+ * by the code it checks would prove only that the code is self-consistent. This
+ * is the framing the format documents — lengths, CRCs, a string header, a JSON
+ * payload — and the decoder has to agree with it.
+ */
+function eventStreamFrame(eventType: string, payload: unknown): Uint8Array {
+  const encoder = new TextEncoder();
+  const name = encoder.encode(':event-type');
+  const value = encoder.encode(eventType);
+  const body = encoder.encode(JSON.stringify(payload));
+
+  const headers = new Uint8Array(1 + name.length + 1 + 2 + value.length);
+  let at = 0;
+  headers[at++] = name.length;
+  headers.set(name, at);
+  at += name.length;
+  headers[at++] = 7; // the string type
+  headers[at++] = (value.length >> 8) & 0xff;
+  headers[at++] = value.length & 0xff;
+  headers.set(value, at);
+
+  const total = 12 + headers.length + body.length + 4;
+  const frame = new Uint8Array(total);
+  const view = new DataView(frame.buffer);
+  view.setUint32(0, total);
+  view.setUint32(4, headers.length);
+  frame.set(headers, 12);
+  frame.set(body, 12 + headers.length);
+  // The CRCs are written as the format requires; the decoder reads past them, so
+  // a wrong one here would be a fixture bug rather than a test failure.
+  view.setUint32(8, crc32(frame.subarray(0, 8)));
+  view.setUint32(total - 4, crc32(frame.subarray(0, total - 4)));
+  return frame;
+}
+
+function concatBytes(...parts: readonly Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.length;
+  }
+  return out;
+}
+
+/** A body as the codec now receives it: bytes, whichever family it belongs to. */
+function bodyBytes(value: unknown): Uint8Array {
+  if (value instanceof Uint8Array) return value;
+  return new TextEncoder().encode(JSON.stringify(value));
 }
 
 /** A minimal, valid body for each surface. The pivot is what these have in common. */
@@ -103,6 +159,14 @@ const PROVIDER_ANSWER: Readonly<Record<WireFamily, unknown>> = {
   },
   // No codec, so no answer to read. Present so the record is exhaustive over the
   // enum and a family added later is a type error here until it has a fixture.
+  // kiro's answer is not text at all: AWS EventStream frames, built here by hand
+  // so the fixture is the wire rather than the codec's own output. Two of them,
+  // because this wire reports the text and the usage in separate events — which
+  // is also why the decoder assembles usage across the whole stream.
+  kiro: concatBytes(
+    eventStreamFrame('assistantResponseEvent', { content: 'hello' }),
+    eventStreamFrame('meteringEvent', { usage: { inputTokens: 3, outputTokens: 2 } }),
+  ),
   custom: null,
 };
 
@@ -162,7 +226,7 @@ describe('the surface × family matrix', () => {
         return;
       }
 
-      const encoded = codec.encodeRequest(canonical);
+      const encoded = codec.encodeRequest(canonical, context());
 
       // A path relative to the provider's base URL, and a body with something in
       // it — the two things every family has.
@@ -187,7 +251,7 @@ describe('the surface × family matrix', () => {
         return;
       }
 
-      const result = codec.decodeResponse(PROVIDER_ANSWER[family], context());
+      const result = codec.decodeResponse(bodyBytes(PROVIDER_ANSWER[family]), context());
 
       // The pivot's own shape, whichever dialect it came out of.
       expect(result.model.length).toBeGreaterThan(0);
@@ -207,7 +271,7 @@ describe('the surface × family matrix', () => {
         return;
       }
 
-      const result: CanonicalResult = codec.decodeResponse(PROVIDER_ANSWER[family], context());
+      const result: CanonicalResult = codec.decodeResponse(bodyBytes(PROVIDER_ANSWER[family]), context());
       const rendered = renderResult(surface, result);
       const parsed = SURFACE_RESPONSE_SCHEMA[surface].safeParse(rendered);
 

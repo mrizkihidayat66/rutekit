@@ -23,6 +23,21 @@ export interface CodecContext {
   readonly now: () => number;
   readonly ids: IdFactory;
   readonly model: string;
+  /**
+   * The account's own fields, as name/value strings.
+   *
+   * **Some providers need a value out of the credential in the request body, not
+   * only in a header.** kiro is the case: its runtime refuses a request without a
+   * `profileArn`, which is issued alongside the token and travels in the JSON
+   * body as well as the query string. The pivot has no field for it and should
+   * not grow one — it is not a property of the conversation — so the account's
+   * values are handed to the codec, which is the only thing that knows where its
+   * own wire wants them.
+   *
+   * Empty when the credential is opaque (an API key, a cookie): a value that does
+   * not parse as a JSON object has no named fields to offer.
+   */
+  readonly account: Readonly<Record<string, string>>;
 }
 
 /** A body ready for the wire, and the path it belongs on. */
@@ -45,7 +60,17 @@ export interface EncodedRequest {
  * `finish` a codec was holding until it had the usage to go with it.
  */
 export interface StreamDecoder {
-  push(chunk: string): readonly CanonicalStreamEvent[];
+  /**
+   * Bytes, not text — and the codec decodes them.
+   *
+   * A body arrives as bytes and only the codec knows what they mean. Every SSE
+   * provider's body is UTF-8 text, but not every provider's is SSE: AWS
+   * EventStream is length-prefixed binary and a UTF-8 decode destroys it. Putting
+   * the decode in the transport would mean one wire family could never be
+   * expressed, so the transport hands bytes down and each codec owns its own
+   * boundary — the text ones through `createUtf8SseDecoder`.
+   */
+  push(chunk: Uint8Array): readonly CanonicalStreamEvent[];
   flush(): readonly CanonicalStreamEvent[];
 }
 
@@ -66,10 +91,22 @@ export interface ErrorInput {
  * through `/v1`, only probed.
  */
 export interface WireCodec {
-  /** The pivot, rendered into this family's request body. */
-  encodeRequest(request: CanonicalRequest): EncodedRequest;
-  /** A non-streaming answer, decoded into the pivot. */
-  decodeResponse(body: unknown, context: CodecContext): CanonicalResult;
+  /**
+   * The pivot, rendered into this family's request body.
+   *
+   * The context is here for the same reason it is on the decoders: a provider
+   * whose request needs a value out of the credential — kiro's `profileArn` — has
+   * nowhere else to read it. A codec that does not need it simply declares the
+   * one parameter, which is what the three SSE families do.
+   */
+  encodeRequest(request: CanonicalRequest, context: CodecContext): EncodedRequest;
+  /**
+   * A non-streaming answer, decoded into the pivot.
+   *
+   * Bytes, for the same reason the stream decoder takes bytes: only the codec
+   * knows whether its provider answers JSON or a binary framing.
+   */
+  decodeResponse(body: Uint8Array, context: CodecContext): CanonicalResult;
   /** A streaming answer, decoded incrementally into the pivot. */
   createStreamDecoder(context: CodecContext): StreamDecoder;
   /** A failed answer, decoded into the one error shape every surface returns. */

@@ -1,5 +1,5 @@
 import type { FinishReason } from '@contracts';
-import { createSseDecoder, type SseFrame } from '@shared';
+import { createUtf8SseDecoder, type SseFrame } from '@shared';
 
 import { asRecord } from '../blocks.ts';
 import type { CanonicalStreamEvent } from '../canonical-stream.ts';
@@ -18,7 +18,7 @@ import type { CodecContext, StreamDecoder } from './types.ts';
  * until `message_stop` rather than emitted when the stop reason appears.
  */
 export function createAnthropicStreamDecoder(context: CodecContext): StreamDecoder {
-  const sse = createSseDecoder();
+  const sse = createUtf8SseDecoder();
 
   let started = false;
   let finished = false;

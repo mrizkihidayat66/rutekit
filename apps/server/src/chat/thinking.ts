@@ -105,6 +105,7 @@ export function reasoningAsk(family: WireFamily, level: ThinkingLevel): Reasonin
       };
     }
     case 'google':
+    case 'kiro':
     case 'custom':
       return NOTHING;
   }

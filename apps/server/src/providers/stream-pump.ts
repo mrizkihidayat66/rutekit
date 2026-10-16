@@ -75,7 +75,6 @@ export interface PumpHandlers {
 
 export function pumpStream(input: PumpInput, handlers: PumpHandlers): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  const text = new TextDecoder();
 
   return new ReadableStream<Uint8Array>({
     async start(controller): Promise<void> {
@@ -117,7 +116,10 @@ export function pumpStream(input: PumpInput, handlers: PumpHandlers): ReadableSt
         // decoded regardless, because usage is what quota accounting is made of
         // and the provider only says it once.
         if (input.renderer === null) controller.enqueue(chunk);
-        emit(input.decoder.push(text.decode(chunk, { stream: true })));
+        // Handed down as bytes: the codec is what knows whether this body is
+        // UTF-8 SSE or AWS's length-prefixed framing, and a decode here would
+        // decide that for it — wrongly, for one of the two.
+        emit(input.decoder.push(chunk));
       };
 
       try {

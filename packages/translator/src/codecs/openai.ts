@@ -12,7 +12,7 @@ import type {
 import { asRecord, parseToolArguments } from '../blocks.ts';
 import type { CanonicalRequest } from '../canonical-request.ts';
 import type { CanonicalResult } from '../canonical-result.ts';
-import { arr, httpErrorKind, joinText, num, statusMessage, str, zeroUsage } from './shared.ts';
+import { arr, httpErrorKind, joinText, jsonBody, num, statusMessage, str, zeroUsage } from './shared.ts';
 import type { CodecContext, EncodedRequest, ErrorInput } from './types.ts';
 
 /**
@@ -202,8 +202,8 @@ export function openAiUsage(value: unknown): Usage {
   };
 }
 
-export function decodeOpenAiResponse(body: unknown, context: CodecContext): CanonicalResult {
-  const record = asRecord(body) ?? {};
+export function decodeOpenAiResponse(body: Uint8Array, context: CodecContext): CanonicalResult {
+  const record = asRecord(jsonBody(body)) ?? {};
   const choice = asRecord(arr(record.choices)[0]) ?? {};
   const message = asRecord(choice.message) ?? {};
   const blocks: ContentBlock[] = [];

@@ -3,6 +3,8 @@ import type { WireFamily } from '@contracts';
 import { anthropicError, decodeAnthropicResponse, encodeAnthropicRequest } from './anthropic.ts';
 import { createAnthropicStreamDecoder } from './anthropic-stream.ts';
 import { decodeGoogleResponse, encodeGoogleRequest, googleError } from './google.ts';
+import { decodeKiroResponse, encodeKiroRequest, kiroError } from './kiro.ts';
+import { createKiroStreamDecoder } from './kiro.ts';
 import { createGoogleStreamDecoder } from './google-stream.ts';
 import { decodeOpenAiResponse, encodeOpenAiRequest, openAiError } from './openai.ts';
 import { createOpenAiStreamDecoder } from './openai-stream.ts';
@@ -31,6 +33,20 @@ export const anthropicCodec: WireCodec = {
   decodeError: anthropicError,
 };
 
+/**
+ * kiro's family: a JSON request of its own shape, answered in AWS EventStream.
+ *
+ * Not a variation on any of the three above — the request is nobody else's and
+ * the response is not text at all — which is why it is a family rather than a
+ * provider option on one.
+ */
+export const kiroCodec: WireCodec = {
+  encodeRequest: encodeKiroRequest,
+  decodeResponse: decodeKiroResponse,
+  createStreamDecoder: createKiroStreamDecoder,
+  decodeError: kiroError,
+};
+
 export const googleCodec: WireCodec = {
   encodeRequest: encodeGoogleRequest,
   decodeResponse: decodeGoogleResponse,
@@ -54,6 +70,8 @@ export function codecFor(family: WireFamily): WireCodec | null {
       return anthropicCodec;
     case 'google':
       return googleCodec;
+    case 'kiro':
+      return kiroCodec;
     case 'custom':
       return null;
   }

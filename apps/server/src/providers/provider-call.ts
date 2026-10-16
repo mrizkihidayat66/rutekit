@@ -47,7 +47,7 @@ export interface CallOptions {
    * is just `unknown`; a rendered body is always an object, so the `null` this
    * checks for can only have been put there to mean the direct route.
    */
-  readonly render: (raw: string) => unknown;
+  readonly render: (raw: Uint8Array) => unknown;
   readonly streamDecoder: () => StreamDecoder;
   /** Null on the direct route, where there is nothing to render frames with. */
   readonly renderer: () => StreamRenderer | null;
@@ -109,7 +109,15 @@ export async function callProvider(call: ProviderCall, options: CallOptions): Pr
 
   if (!upstream.ok) {
     const body = await readBody(upstream, call.manifest, abort, stopClock);
-    throw upstreamFailure(call.manifest, upstream.status, body, retryAfterOf(upstream.headers));
+    // An error body is text — the classification below matches words in it — and
+    // every provider seen so far answers a failure in JSON or a sentence. The
+    // success path below is the one where a body may not be text at all.
+    throw upstreamFailure(
+      call.manifest,
+      upstream.status,
+      new TextDecoder().decode(body),
+      retryAfterOf(upstream.headers),
+    );
   }
 
   if (!call.stream) {
@@ -169,15 +177,24 @@ export async function callProvider(call: ProviderCall, options: CallOptions): Pr
   return new Response(stream, { status: 200, headers: SSE_HEADERS });
 }
 
-/** A whole body, with the upstream clock still covering it. */
+/**
+ * A whole body, as bytes, with the upstream clock still covering it.
+ *
+ * **Bytes rather than text, and the caller decodes.** A body is not always text:
+ * every SSE provider's is UTF-8, but kiro answers AWS EventStream — a
+ * length-prefixed binary framing that `text()` destroys. Decoding here would
+ * answer that question on the provider's behalf and answer it wrongly for one
+ * family, so the bytes travel and each codec owns its own boundary. The error
+ * path decodes to text, because a message is what it is looking for.
+ */
 async function readBody(
   upstream: Response,
   manifest: ProviderManifest,
   abort: AbortController,
   stopClock: () => void,
-): Promise<string> {
+): Promise<Uint8Array> {
   try {
-    return await upstream.text();
+    return new Uint8Array(await upstream.arrayBuffer());
   } catch (cause) {
     if (abort.signal.aborted) {
       throw AppError.timeout(`${manifest.name} ran out of time answering.`, {

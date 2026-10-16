@@ -21,7 +21,6 @@ import type { ServerConfig } from '@server/runtime/config.ts';
 import type { TokenSaverSettings } from '@server/runtime/token-saver.ts';
 import { applyPhase, type FilterRuleLike } from '@server/tools/filters.ts';
 
-import { asJson } from './dispatch-errors.ts';
 import type { ResponseFetcher } from './outbound.ts';
 import { callProvider, type StreamEnd } from './provider-call.ts';
 
@@ -188,13 +187,7 @@ export async function callModel(
   hooks: ModelCallHooks = {},
 ): Promise<ModelCallResult> {
   const outbound = outboundRequest(request, call, deps, requestId);
-  const encoded = call.codec.encodeRequest(outbound.request);
-  const context: CodecContext = { now: deps.now, ids: deps.ids, model: call.modelId };
 
-  // The body that actually leaves rutekit, after degradation, the Token Saver,
-  // the phase-2 filters and the provider's own codec — which is the panel an
-  // operator reads when the question is "what did we send, exactly".
-  hooks.onUpstreamRequest?.(encoded.body);
   // Reported before the lease is taken, because what the Token Saver removed is
   // already settled by this point and does not depend on whether a provider
   // answers. See `CompressionReport`.
@@ -208,7 +201,30 @@ export async function callModel(
   // it — a leaked lease would keep the account's in-flight count up and quietly
   // shrink the pool for the life of the process.
   try {
-    const target = endpointUrl(call.manifest, call.manifest.endpoint.chatPath ?? encoded.path, {});
+    /**
+     * The account's own fields, which the codec and the URL both read.
+     *
+     * **The encode happens here rather than before the lease, and that is the
+     * point.** A request body can depend on the account: kiro's runtime refuses a
+     * call without the `profileArn` issued beside its token, and the codec is the
+     * only thing that knows where its own wire wants it. Encoding before the
+     * lease meant encoding without the account, which is why that value had
+     * nowhere to come from.
+     */
+    const account = lease.credential.fields;
+    const context: CodecContext = { now: deps.now, ids: deps.ids, model: call.modelId, account };
+    const encoded = call.codec.encodeRequest(outbound.request, context);
+
+    // The body that actually leaves rutekit, after degradation, the Token Saver,
+    // the phase-2 filters and the provider's own codec — which is the panel an
+    // operator reads when the question is "what did we send, exactly".
+    hooks.onUpstreamRequest?.(encoded.body);
+
+    const target = endpointUrl(
+      call.manifest,
+      call.manifest.endpoint.chatPath ?? encoded.path,
+      account,
+    );
     if (target.missing.length > 0) {
       // A templated base URL needs values this row has no column for, so the
       // refusal names the gap rather than calling a URL with a hole in it.
@@ -242,7 +258,7 @@ export async function callModel(
         logger: deps.logger,
         requestId,
         render: (raw): unknown => {
-          const result = call.codec.decodeResponse(asJson(raw), context);
+          const result = call.codec.decodeResponse(raw, context);
           usage = result.usage;
           hooks.onResult?.(result.usage);
           if (call.direct) return null;

@@ -67,6 +67,43 @@ function parseFrame(raw: string): SseFrame | null {
   return { event, data: data.join('\n') };
 }
 
+/**
+ * The same decoder, fed bytes instead of text.
+ *
+ * **The boundary belongs here rather than in the transport.** A body arrives as
+ * bytes and only the codec knows what they mean: every SSE provider's is UTF-8
+ * text, but not every provider's body is SSE — AWS EventStream, which one wire in
+ * the catalogue speaks, is length-prefixed binary and is destroyed by a UTF-8
+ * decode. So the transport hands bytes down and each codec decodes its own, which
+ * is why this adapter exists rather than a single decode in the pump.
+ *
+ * `{ stream: true }` is what makes it correct across a chunk boundary: a
+ * multi-byte character split between two reads is held until its remaining bytes
+ * arrive instead of becoming a replacement character. `flush` releases the last
+ * bytes and then whatever frame they completed.
+ */
+export interface ByteSseDecoder {
+  push(chunk: Uint8Array): readonly SseFrame[];
+  flush(): readonly SseFrame[];
+}
+
+export function createUtf8SseDecoder(): ByteSseDecoder {
+  const text = new TextDecoder();
+  const sse = createSseDecoder();
+
+  return {
+    push(chunk) {
+      return sse.push(text.decode(chunk, { stream: true }));
+    },
+    flush() {
+      // The trailing `decode()` with no argument is what releases a held
+      // multi-byte tail; the bytes it produces can complete the frame the buffer
+      // was holding, so they go through `push` before the frame-level flush.
+      return [...sse.push(text.decode()), ...sse.flush()];
+    },
+  };
+}
+
 export function createSseDecoder(): SseDecoder {
   let buffer = '';
 

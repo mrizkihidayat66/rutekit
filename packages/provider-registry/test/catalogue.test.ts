@@ -69,13 +69,17 @@ describe('the shipped catalogue', () => {
     ]);
   });
 
-  it('speaks all four wire families', () => {
+  it('speaks every wire family that has a codec, plus custom', () => {
     const families = new Set(
       build()
         .all()
         .map((manifest) => manifest.endpoint.wireFamily),
     );
-    expect([...families].sort()).toEqual(['anthropic', 'custom', 'google', 'openai']);
+    // `custom` is here because an entry may exist for a provider whose wire nobody
+    // has learned yet: it is reachable by probe and not by `/v1`. Every other name
+    // is one `codecFor` answers for, so this list and the codec registry are the
+    // same set by construction rather than by coincidence.
+    expect([...families].sort()).toEqual(['anthropic', 'custom', 'google', 'kiro', 'openai']);
   });
 
   it('gives every provider that serves a chat at least one curated model', () => {

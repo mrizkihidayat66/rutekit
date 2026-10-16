@@ -7,6 +7,27 @@ export function str(value: unknown): string | undefined {
 }
 
 /**
+ * A whole response body, decoded and parsed.
+ *
+ * The three SSE families all answer JSON for a non-streaming request, so this is
+ * what their `decodeResponse` starts with. It lives here rather than in the
+ * transport because the transport no longer decodes: a body is bytes, and which
+ * codec can read them is the codec's own business — kiro's is EventStream and
+ * this would destroy it.
+ *
+ * A body that is not JSON parses to null rather than throwing, which is the same
+ * answer the decoders already gave an unreadable body: an empty object, and a
+ * result that says nothing was understood.
+ */
+export function jsonBody(body: Uint8Array): unknown {
+  try {
+    return JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The concatenated text of a block list.
  *
  * Every dialect but Anthropic's carries a turn's text as one flat string, so

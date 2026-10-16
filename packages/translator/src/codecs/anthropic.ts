@@ -11,7 +11,7 @@ import type {
 import { asRecord, imageBlockOf, toolResultContentOf } from '../blocks.ts';
 import type { CanonicalRequest } from '../canonical-request.ts';
 import type { CanonicalResult } from '../canonical-result.ts';
-import { arr, httpErrorKind, num, statusMessage, str, zeroUsage } from './shared.ts';
+import { arr, httpErrorKind, jsonBody, num, statusMessage, str, zeroUsage } from './shared.ts';
 import type { CodecContext, EncodedRequest, ErrorInput } from './types.ts';
 
 /**
@@ -197,8 +197,8 @@ export function decodeAnthropicBlock(value: unknown): ContentBlock | null {
   }
 }
 
-export function decodeAnthropicResponse(body: unknown, context: CodecContext): CanonicalResult {
-  const record = asRecord(body) ?? {};
+export function decodeAnthropicResponse(body: Uint8Array, context: CodecContext): CanonicalResult {
+  const record = asRecord(jsonBody(body)) ?? {};
   const blocks: ContentBlock[] = [];
   for (const block of arr(record.content)) {
     const decoded = decodeAnthropicBlock(block);

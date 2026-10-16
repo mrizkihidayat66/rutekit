@@ -3,7 +3,7 @@ import type { ApiError, CanonicalMessage, ContentBlock, FinishReason, Usage } fr
 import { asRecord } from '../blocks.ts';
 import type { CanonicalRequest } from '../canonical-request.ts';
 import type { CanonicalResult } from '../canonical-result.ts';
-import { arr, httpErrorKind, joinText, num, statusMessage, str, zeroUsage } from './shared.ts';
+import { arr, httpErrorKind, joinText, jsonBody, num, statusMessage, str, zeroUsage } from './shared.ts';
 import type { CodecContext, EncodedRequest, ErrorInput } from './types.ts';
 
 /**
@@ -233,8 +233,8 @@ export function decodeGooglePart(value: unknown, context: CodecContext): Content
   return null;
 }
 
-export function decodeGoogleResponse(body: unknown, context: CodecContext): CanonicalResult {
-  const record = asRecord(body) ?? {};
+export function decodeGoogleResponse(body: Uint8Array, context: CodecContext): CanonicalResult {
+  const record = asRecord(jsonBody(body)) ?? {};
   const candidate = asRecord(arr(record.candidates)[0]) ?? {};
   const content = asRecord(candidate.content) ?? {};
   const blocks: ContentBlock[] = [];

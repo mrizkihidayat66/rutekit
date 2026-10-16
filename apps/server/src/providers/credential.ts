@@ -25,6 +25,21 @@ export interface AccountCredential {
   readonly value: string;
   /** When the provider said the token stops being valid; null when it did not. */
   readonly expiresAt: string | null;
+  /**
+   * Every string field the stored credential carries, by name.
+   *
+   * **The known fields above are not enough, and kiro is why.** A sign-in that
+   * returns more than a token returns fields a codec may need in the request
+   * body: kiro issues a `profileArn` beside its token and its runtime refuses a
+   * call without one. Picking named fields out of the blob — which is what this
+   * used to do — drops the rest silently, and the codec then has nowhere to read
+   * them from. Handing the whole set over costs nothing and means the next
+   * provider with an extra field needs no change here.
+   *
+   * Empty for a credential that is not a JSON object: a pasted key has no named
+   * fields to offer.
+   */
+  readonly fields: Readonly<Record<string, string>>;
 }
 
 function parseJson(text: string): unknown {
@@ -33,6 +48,16 @@ function parseJson(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+/** The string fields of a parsed credential, or none when it is not an object. */
+function stringFieldsOf(value: unknown): Readonly<Record<string, string>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const fields: Record<string, string> = {};
+  for (const [key, field] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof field === 'string' && field !== '') fields[key] = field;
+  }
+  return fields;
 }
 
 /** The stored envelope as an OAuth token, or null when it is something else. */
@@ -79,7 +104,10 @@ export function readCredential(
     return null;
   }
 
-  const oauth = asOauth(parseJson(plaintext));
-  if (oauth !== null) return { value: oauth.accessToken, expiresAt: oauth.expiresAt };
-  return plaintext === '' ? null : { value: plaintext, expiresAt: null };
+  const parsed = parseJson(plaintext);
+  const fields = stringFieldsOf(parsed);
+
+  const oauth = asOauth(parsed);
+  if (oauth !== null) return { value: oauth.accessToken, expiresAt: oauth.expiresAt, fields };
+  return plaintext === '' ? null : { value: plaintext, expiresAt: null, fields };
 }

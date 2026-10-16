@@ -19,8 +19,19 @@ export const providerCategorySchema = z.enum([
   'free',
 ]);
 
-/** Which request/response dialect the provider speaks on the wire. */
-export const wireFamilySchema = z.enum(['openai', 'anthropic', 'google', 'custom']);
+/**
+ * Which request/response dialect the provider speaks on the wire.
+ *
+ * `custom` is not "a dialect rutekit has not learned" — it is the absence of one,
+ * and it has no codec on purpose: a provider whose wire nobody knows cannot be
+ * reached through `/v1` at all, only probed. Adding a family here is what makes a
+ * provider reachable, and each one is a codec in `packages/translator`.
+ *
+ * `kiro` is the fourth that has one. Its request is JSON of its own shape and its
+ * response is AWS EventStream — length-prefixed binary, not SSE — so it is a
+ * family rather than a variation on any of the three above.
+ */
+export const wireFamilySchema = z.enum(['openai', 'anthropic', 'google', 'kiro', 'custom']);
 
 export const providerStatusSchema = z.enum(['ready', 'needs_auth', 'error', 'disabled']);
 

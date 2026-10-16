@@ -1,23 +1,25 @@
 import { createIdFactory } from '@shared';
+import type { CanonicalResult } from '../src/canonical-result.ts';
+import type { StreamDecoder } from '../src/codecs/types.ts';
 import { describe, expect, it } from 'vitest';
 
 import { chooseRoute } from '../src/route.ts';
 import { codecFor, createBlockBuilder, httpErrorKind } from '../src/index.ts';
 import {
   anthropicError,
-  decodeAnthropicResponse,
+  decodeAnthropicResponse as decodeAnthropicResponseBytes,
   encodeAnthropicRequest,
 } from '../src/codecs/anthropic.ts';
 import { createAnthropicStreamDecoder } from '../src/codecs/anthropic-stream.ts';
 import {
-  decodeGoogleResponse,
+  decodeGoogleResponse as decodeGoogleResponseBytes,
   encodeGoogleRequest,
   googleError,
   googleFinishReason,
 } from '../src/codecs/google.ts';
 import { createGoogleStreamDecoder } from '../src/codecs/google-stream.ts';
 import {
-  decodeOpenAiResponse,
+  decodeOpenAiResponse as decodeOpenAiResponseBytes,
   encodeOpenAiRequest,
   openAiError,
   openAiFinishReason,
@@ -38,8 +40,43 @@ import type { CodecContext } from '../src/codecs/types.ts';
 /** A deterministic id factory: every byte is zero, so every id is the alphabet's first char. */
 const ids = createIdFactory((bytes) => new Uint8Array(bytes));
 
+/**
+ * The response decoders, with the fixture's object encoded.
+ *
+ * They take bytes now — a codec owns its own text boundary, because one wire
+ * family's body is not text at all — so the fixtures stay readable as JSON and
+ * these are the one place that turns them into what the interface wants. The
+ * names stay plain so every call site below reads as it did.
+ */
+function encodeBody(value: unknown): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(value));
+}
+
+function decodeOpenAiResponse(body: unknown, ctx: CodecContext): CanonicalResult {
+  return decodeOpenAiResponseBytes(encodeBody(body), ctx);
+}
+
+function decodeAnthropicResponse(body: unknown, ctx: CodecContext): CanonicalResult {
+  return decodeAnthropicResponseBytes(encodeBody(body), ctx);
+}
+
+function decodeGoogleResponse(body: unknown, ctx: CodecContext): CanonicalResult {
+  return decodeGoogleResponseBytes(encodeBody(body), ctx);
+}
+
 function context(model = 'gpt-4o'): CodecContext {
-  return { now: () => 1_700_000_000, ids, model };
+  return { now: () => 1_700_000_000, ids, model, account: {} };
+}
+
+/**
+ * A decoder's `push`, with the fixture's text encoded.
+ *
+ * The decoders take bytes now — a codec owns its own text boundary, because one
+ * wire family's body is not text at all — so the fixtures stay readable as text
+ * and this is the one place that turns them into what the interface wants.
+ */
+function push(decoder: StreamDecoder, text: string): readonly CanonicalStreamEvent[] {
+  return decoder.push(new TextEncoder().encode(text));
 }
 
 function request(overrides: Partial<CanonicalRequest> = {}): CanonicalRequest {
@@ -305,13 +342,13 @@ describe('OpenAI error decoding', () => {
 describe('OpenAI stream decoding', () => {
   it('opens with start and closes with finish when [DONE] arrives', () => {
     const decoder = createOpenAiStreamDecoder(context());
-    const opened = decoder.push(
+    const opened = push(decoder, 
       'data: {"id":"cmpl-1","model":"gpt-4o","created":1700000000,"choices":[{"index":0,"delta":{"role":"assistant","content":"hi"}}]}\n\n',
     );
 
     expect(typesOf(opened)).toEqual(['start', 'block_start', 'text_delta']);
 
-    const closed = decoder.push(
+    const closed = push(decoder, 
       'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\ndata: [DONE]\n\n',
     );
 
@@ -325,7 +362,7 @@ describe('OpenAI stream decoding', () => {
 
   it('holds the finish until the stream ends, because usage arrives after the reason', () => {
     const decoder = createOpenAiStreamDecoder(context());
-    const events = decoder.push(
+    const events = push(decoder, 
       'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
     );
 
@@ -335,10 +372,10 @@ describe('OpenAI stream decoding', () => {
 
   it('opens a tool block once even when the provider repeats the name', () => {
     const decoder = createOpenAiStreamDecoder(context());
-    const first = decoder.push(
+    const first = push(decoder, 
       'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"f","arguments":""}}]}}]}\n\n',
     );
-    const second = decoder.push(
+    const second = push(decoder, 
       'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"name":"f","arguments":"{\\"a\\":1}"}}]}}]}\n\n',
     );
 
@@ -348,7 +385,7 @@ describe('OpenAI stream decoding', () => {
 
   it('ignores a frame that is not JSON', () => {
     const decoder = createOpenAiStreamDecoder(context());
-    expect(decoder.push('data: not-json\n\n')).toEqual([]);
+    expect(push(decoder, 'data: not-json\n\n')).toEqual([]);
   });
 });
 
@@ -449,7 +486,7 @@ describe('Anthropic error decoding', () => {
 describe('Anthropic stream decoding', () => {
   it('takes input tokens from message_start and holds the finish for message_stop', () => {
     const decoder = createAnthropicStreamDecoder(context('claude'));
-    const opened = decoder.push(
+    const opened = push(decoder, 
       'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","model":"claude","usage":{"input_tokens":10,"cache_read_input_tokens":4}}}\n\n',
     );
 
@@ -459,7 +496,7 @@ describe('Anthropic stream decoding', () => {
       usage: { inputTokens: 10, cachedInputTokens: 4, outputTokens: 0 },
     });
 
-    const closed = decoder.push(
+    const closed = push(decoder, 
       'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n',
     );
 
@@ -473,7 +510,7 @@ describe('Anthropic stream decoding', () => {
 
   it('drops signature_delta, which is why a Claude client is routed direct', () => {
     const decoder = createAnthropicStreamDecoder(context('claude'));
-    const events = decoder.push(
+    const events = push(decoder, 
       'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig"}}\n\n',
     );
     expect(events).toEqual([]);
@@ -600,7 +637,7 @@ describe('Google error decoding', () => {
 describe('Google stream decoding', () => {
   it('emits the finish at flush, because there is no [DONE] sentinel', () => {
     const decoder = createGoogleStreamDecoder(context('gemini-1.5-pro'));
-    const pushed = decoder.push(
+    const pushed = push(decoder, 
       'data: {"candidates":[{"content":{"parts":[{"text":"hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2,"totalTokenCount":5}}\n\n',
     );
 
@@ -618,7 +655,7 @@ describe('Google stream decoding', () => {
 
   it('writes a whole function call as one argument fragment', () => {
     const decoder = createGoogleStreamDecoder(context('gemini-1.5-pro'));
-    const events = decoder.push(
+    const events = push(decoder, 
       'data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"f","args":{"a":1}}}]}}]}\n\n',
     );
 
