@@ -184,7 +184,12 @@ describe('creating a job', () => {
       .get(job.id);
 
     expect(stored?.payload_envelope).not.toBeNull();
-    expect(stored?.payload_envelope ?? '').not.toContain('pw1');
+    // The sentinel is a fragment that cannot occur in the encoding, not just a
+    // password fragment. The envelope is base64url, so a three-character needle
+    // such as `pw1` can appear inside it by chance — about one run in a few
+    // thousand, which is how this failed once in CI and never locally. `@` is
+    // outside the base64url alphabet, so this cannot collide.
+    expect(stored?.payload_envelope ?? '').not.toContain('alice@example.com');
     // It round-trips through the box, which is what makes a retry possible after
     // a restart.
     expect(server.secrets?.decrypt(stored?.payload_envelope ?? '')).toContain('pw1');
@@ -196,20 +201,23 @@ describe('creating a job', () => {
     // with one provider stripped of its flow is what makes the branch testable.
     const template = providerManifests.find((manifest) => manifest.id === 'kiro');
     if (template === undefined) throw new Error('kiro is missing from the catalogue');
-    serverWith({}, {
-      registry: createProviderRegistry([
-        {
-          ...template,
-          id: 'no-flow',
-          name: 'No Flow',
-          automation: null,
-          // The catalogue's own invariant: `capabilities.automation` says whether
-          // a flow is declared, so stripping one without the other is a
-          // contradiction the registry refuses to build.
-          capabilities: { ...template.capabilities, automation: false },
-        },
-      ]),
-    });
+    serverWith(
+      {},
+      {
+        registry: createProviderRegistry([
+          {
+            ...template,
+            id: 'no-flow',
+            name: 'No Flow',
+            automation: null,
+            // The catalogue's own invariant: `capabilities.automation` says whether
+            // a flow is declared, so stripping one without the other is a
+            // contradiction the registry refuses to build.
+            capabilities: { ...template.capabilities, automation: false },
+          },
+        ]),
+      },
+    );
     cookie = await signIn(app);
 
     const response = await call(app, JOBS_PATH, {
@@ -314,8 +322,8 @@ describe('running a job', () => {
     // same service an operator's hand-added account goes through.
     const accounts = server.accounts.listByProvider('kiro');
     expect(accounts).toHaveLength(2);
-    const stored = accounts.map((account) =>
-      server.secrets?.decrypt(account.credentialEnvelope) ?? '',
+    const stored = accounts.map(
+      (account) => server.secrets?.decrypt(account.credentialEnvelope) ?? '',
     );
     // Both credentials the worker produced are stored, and each names the item it
     // came from — which is how a batch's accounts are traceable back to their row.
@@ -687,9 +695,7 @@ describe('listing jobs', () => {
     await createJob(app, cookie);
     await settle();
 
-    const page = jobsResponseSchema.parse(
-      await (await call(app, JOBS_PATH, { cookie })).json(),
-    );
+    const page = jobsResponseSchema.parse(await (await call(app, JOBS_PATH, { cookie })).json());
 
     expect(page.total).toBe(1);
     expect(page.items[0]?.items).toEqual([]);

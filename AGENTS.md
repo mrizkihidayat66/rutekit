@@ -97,6 +97,15 @@ coverage number jump up for no reason, suspect this.
 **Vitest does not write a coverage report when any test fails** — so a red suite means
 the coverage gate was not evaluated at all. A silent gate is not a gate that passed.
 
+**A substring assertion against random output can collide.** `jobs.test.ts` asserted a
+stored envelope did not contain `pw1`, to prove the payload is encrypted — but the
+envelope is base64url, so a three-character needle appears in it by chance about once in
+2,600 runs. It passed locally every time and failed once in CI. Pick a sentinel that
+cannot occur in the encoding: `@` and `.` are outside the base64url alphabet, so
+`alice@example.com` is deterministic where `pw1` is a lottery. The general rule is that a
+negative assertion needs a needle that the output can never contain, not merely one it
+usually does not.
+
 **A `skipIf` guard can hide a gate from CI.** `apps/web/test/bundle-size.test.ts` skips
 itself when `apps/web/dist` is missing — reasonable locally, where a build may not have
 happened, but it meant CI ran the tests _before_ the build and the only machine check on
