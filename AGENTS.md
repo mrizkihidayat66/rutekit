@@ -129,6 +129,13 @@ that fails silently.
 levels upward from it yields `\`. `runtime/config.ts` uses `process.cwd()` there,
 detected via the `~BUN` marker.
 
+**`import.meta.dir` is `undefined` under the test runner.** Vitest replaces `import.meta`
+with an object of its own, so a module-level read of it throws `The "paths[0]" property
+must be of type string, got undefined` the moment a test reaches that function — and only
+the tests that reach it will say so. The same reason `resolvePromptfooPackage` uses
+`createRequire` rather than `import.meta.resolve`. Guard it with `typeof dir === 'string'`
+rather than casting, so a runtime without it answers something honest instead of crashing.
+
 **`bun build --compile` embeds nothing by default.** The console has to be added with
 `--asset apps/web/dist`, which names the file relative to the asset directory's parent
 (`dist/index.html`). Without it the binary serves the API only and its root 404s —

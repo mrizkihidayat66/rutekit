@@ -1,4 +1,5 @@
-import { isAbsolute, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 /**
@@ -276,26 +277,6 @@ export function parseConfig(
 }
 
 /**
- * Where a relative `RUTEKIT_*` path resolves from.
- *
- * Running from source, that is the repository root — four levels up from
- * `apps/server/src/runtime/config.ts`. Computed rather than configured: a wrong
- * `RUTEKIT_*` path is a support ticket, a wrong repo root is a silently misplaced
- * database.
- *
- * **Compiled, there is no repository.** `bun build --compile` puts the bundle in
- * a virtual filesystem and reports `import.meta.dir` as a path inside it
- * (`B:/~BUN/root`), so walking four levels up lands on the filesystem root and
- * `mkdir` on it throws `EPERM`. The working directory is the honest answer there:
- * it is where the operator launched the binary, and `./data/rutekit.sqlite` in a
- * shell should mean the same thing whether it was started by `bun run dev` or by
- * a compiled `rutekit`.
- *
- * The check is the bundle marker in the path rather than a flag on `Bun`: there
- * is no `Bun.isStandalone` in the runtime this targets, and the marker is what
- * the runtime itself uses to name the virtual root.
- */
-/**
  * Whether this process is a compiled standalone binary.
  *
  * The marker is the virtual filesystem root `bun build --compile` puts the bundle
@@ -303,13 +284,43 @@ export function parseConfig(
  * runtime itself uses to name that root. There is no `Bun.isStandalone` in the
  * runtime this targets.
  */
-export function isCompiledBinary(): boolean {
-  return import.meta.dir.includes('~BUN');
+/**
+ * The directory this module was loaded from, or null where the runtime has none.
+ *
+ * `import.meta.dir` is absent under the test runner, which replaces `import.meta` with
+ * an object of its own — the same reason `resolvePromptfooPackage` uses `createRequire`
+ * rather than `import.meta.resolve`. Both readers below answer something honest rather
+ * than throwing when it is missing.
+ */
+function moduleDir(): string | null {
+  const dir: string | undefined = import.meta.dir;
+  return typeof dir === 'string' ? dir : null;
 }
 
+export function isCompiledBinary(): boolean {
+  return moduleDir()?.includes('~BUN') ?? false;
+}
+
+/**
+ * What a relative `RUTEKIT_DATABASE_URL` or `RUTEKIT_DATA_DIR` resolves against.
+ *
+ * Three layouts have to give the right answer, and two of them give the same one:
+ *
+ * - a compiled binary, whose own path is inside a virtual filesystem;
+ * - a bundled npm package, which has no checkout anywhere above it;
+ * - the monorepo, where the answer is the repository root so `bun run --filter` and a
+ *   direct `bun src/main.ts` behave alike.
+ *
+ * The first two answer the working directory, because an operator's data belongs where
+ * they ran the command — and that is the directory `rutekit init` writes its `.env`
+ * into, so the two agree. The monorepo is detected by the one thing a bundle cannot
+ * have above it: the server's own source directory.
+ */
 export function repoRoot(): string {
-  if (isCompiledBinary()) return process.cwd();
-  return resolve(import.meta.dir, '..', '..', '..', '..');
+  const dir = moduleDir();
+  if (dir === null || isCompiledBinary()) return process.cwd();
+  const monorepo = resolve(dir, '..', '..', '..', '..');
+  return existsSync(join(monorepo, 'apps', 'server', 'src')) ? monorepo : process.cwd();
 }
 
 export function loadConfig(source: Record<string, string | undefined> = process.env): ServerConfig {

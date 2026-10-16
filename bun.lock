@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "rutekit",
+      "name": "rutekit-workspace",
       "devDependencies": {
         "@eslint/js": "^9.37.0",
         "@types/bun": "^1.2.23",

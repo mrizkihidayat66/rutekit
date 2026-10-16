@@ -48,6 +48,7 @@ marked **Superseded by ADR-NNNN**.
 | 0036 | [Operational hardening](0036-operational-hardening.md)                                 | Shutdown order extracted + pinned; forward migration tested with data; archive tested through a file; a replacing restore = no duplicates               | Accepted |
 | 0037 | [Distribution](0037-distribution.md)                                                   | The server serves the console + SPA fallback; `repoRoot` answers cwd when compiled; CLI in-process; tray dropped; CI green on a clean checkout          | Accepted |
 | 0038 | [Polish: contrast measured, borders recorded](0038-polish-a11y-and-performance.md)     | Contrast from tokens (axe is blind in jsdom); `--color-warning` fixed, control borders recorded as a gap; bundle inside the 300KB budget                | Accepted |
+| 0039 | [npm packaging: one bundled package](0039-npm-packaging.md)                            | `bun build` inlines the workspace packages; npm deps stay external; `promptfoo` optional; console shipped beside the bundle; source maps excluded       | Accepted |
 
 ## Decision → Document Map
 

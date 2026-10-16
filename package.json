@@ -1,5 +1,5 @@
 {
-  "name": "rutekit",
+  "name": "rutekit-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,9 +15,10 @@
     "dev": "bun run --filter '*' dev",
     "dev:web": "bun run --filter @rutekit/web dev",
     "dev:server": "bun run --filter @rutekit/server dev",
-    "build": "bun run build:web && bun run build:binary",
+    "build": "bun run build:web && bun run build:binary && bun run build:npm",
     "build:web": "bun run --filter @rutekit/web build",
     "build:binary": "bun build --compile --asset apps/web/dist apps/server/src/main.ts --outfile dist/rutekit",
+    "build:npm": "bun apps/cli/scripts/build-publish.ts",
     "preview": "bun run --filter @rutekit/web preview",
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun --bun vitest run",

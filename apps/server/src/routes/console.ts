@@ -201,9 +201,33 @@ export function diskConsole(root: string): ConsoleAssets | null {
  * Embedded wins because a compiled binary is the only thing that has one, and a
  * binary sitting next to a checkout is a case where the *binary's* console is the
  * one that matches its code.
+ *
+ * On disk there are two places to look, because there are two ways to ship a build:
+ * inside a checkout, and beside a bundled package. The second is relative to this
+ * module rather than to the repository root, because a published package has no
+ * checkout to be relative to — and in a checkout that path does not exist, so the
+ * extra lookup costs nothing there.
  */
 export function locateConsole(repoRoot: string): ConsoleAssets {
-  return embeddedConsole() ?? diskConsole(join(repoRoot, 'apps', 'web', 'dist')) ?? NO_CONSOLE;
+  return (
+    embeddedConsole() ??
+    diskConsole(join(repoRoot, 'apps', 'web', 'dist')) ??
+    bundledConsole() ??
+    NO_CONSOLE
+  );
+}
+
+/**
+ * The console shipped beside a bundle, or null where there is no such directory.
+ *
+ * `import.meta.dir` is absent under the test runner, which replaces `import.meta` with
+ * an object of its own — the same reason `resolvePromptfooPackage` uses `createRequire`
+ * rather than `import.meta.resolve`. So a runtime without it answers null here instead
+ * of throwing, and the checkout path above is what the tests exercise.
+ */
+function bundledConsole(): ConsoleAssets | null {
+  const dir: string | undefined = import.meta.dir;
+  return typeof dir === 'string' ? diskConsole(join(dir, 'console')) : null;
 }
 
 /** Hashed build output never changes under the same name; the entry document always might. */

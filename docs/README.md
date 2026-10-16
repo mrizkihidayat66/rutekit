@@ -5,7 +5,7 @@
 | Folder                  | Contents                                     | Status       |
 | ----------------------- | -------------------------------------------- | ------------ |
 | [`plan/`](plan/PRD.md)  | PRD, roadmap, contribution guide, ruleset    | **complete** |
-| [`adr/`](adr/README.md) | Architecture Decision Records (38 decisions) | **complete** |
+| [`adr/`](adr/README.md) | Architecture Decision Records (39 decisions) | **complete** |
 
 ## Where To Start
 
@@ -23,7 +23,7 @@
 
 **If you want to know why a decision was made:**
 
-1. [adr/README.md](adr/README.md) — index of all 38 decisions
+1. [adr/README.md](adr/README.md) — index of all 39 decisions
 
 ## One-Paragraph Summary
 

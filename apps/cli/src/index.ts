@@ -26,24 +26,34 @@ import { init } from './init.ts';
  */
 
 /**
- * The version the package declares, so the two cannot drift.
+ * The version this build carries.
  *
- * Read from disk rather than imported: a JSON import is resolved at bundle time
- * and would report whatever the version was when the bundle was built.
+ * Read from disk rather than imported: a JSON import is resolved at bundle time and
+ * would freeze whatever the version happened to be then, and a CLI that misreports
+ * its own version is worse than one that admits it does not know.
  *
- * `0.0.0` is what an unreadable manifest reports. It is the conventional "unknown"
- * rather than a real version, because a missing manifest is not worth failing a
- * `--version` over — and printing nothing would look like a broken command.
+ * Two layouts, because this runs two ways. In a checkout the entry is
+ * `apps/cli/src/index.ts` and the manifest is one directory up; in a published
+ * package the manifest is written beside the bundle so the two travel together.
+ * Sibling first, so a bundle cannot accidentally read the manifest of whatever
+ * directory it was installed into.
+ *
+ * `0.0.0` is what an unreadable manifest reports — the conventional "unknown" rather
+ * than a real version, because a missing manifest is not worth failing a `--version`
+ * over, and printing nothing would look like a broken command.
  */
 function version(): string {
-  try {
-    const manifest = JSON.parse(
-      readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-    ) as { version?: string };
-    return manifest.version ?? '0.0.0';
-  } catch {
-    return '0.0.0';
+  for (const candidate of ['./package.json', '../package.json']) {
+    try {
+      const manifest = JSON.parse(
+        readFileSync(new URL(candidate, import.meta.url), 'utf8'),
+      ) as { version?: string };
+      if (typeof manifest.version === 'string') return manifest.version;
+    } catch {
+      // Try the next layout.
+    }
   }
+  return '0.0.0';
 }
 
 function fail(message: string): never {

@@ -80,12 +80,12 @@ checkout as above. Publishing `apps/cli` is what would make the one-command path
 
 ## Deployment
 
-| Method        | Command                                                    |
-| ------------- | ---------------------------------------------------------- |
-| Console + API | `bun run dev` (development)                                |
-| Standalone    | `bun run build` → `dist/rutekit`                           |
-| Container     | `docker build -t rutekit .`                                |
-| CLI           | `bun apps/cli/src/index.ts init`, then the same without it |
+| Method        | Command                                                         |
+| ------------- | --------------------------------------------------------------- |
+| Console + API | `bun run dev` (development)                                     |
+| Standalone    | `bun run build` → `dist/rutekit` (binary), `dist/npm` (package) |
+| Container     | `docker build -t rutekit .`                                     |
+| CLI           | `bun apps/cli/src/index.ts init`, then the same without it      |
 
 The standalone binary embeds the console and needs no other files. The container runs
 non-root with `tini` as PID 1. See [ADR-0037](docs/adr/0037-distribution.md).
@@ -110,12 +110,12 @@ unit owns, which files matter, and which invariants must not be broken.
 
 ## Development
 
-| Command                 | What it does                                      |
-| ----------------------- | ------------------------------------------------- |
-| `bun run dev`           | Server and console, watch mode                    |
-| `bun run check`         | Typecheck, lint and test — the definition of done |
-| `bun run test:coverage` | Tests with the server coverage gate               |
-| `bun run build`         | Console, then the standalone binary               |
+| Command                 | What it does                                            |
+| ----------------------- | ------------------------------------------------------- |
+| `bun run dev`           | Server and console, watch mode                          |
+| `bun run check`         | Typecheck, lint and test — the definition of done       |
+| `bun run test:coverage` | Tests with the server coverage gate                     |
+| `bun run build`         | Console, then the standalone binary and the npm package |
 
 The frontend and backend are separated by a test that walks the import graph:
 `apps/web` may not touch Hono, Drizzle, `node:*` or Playwright, and `apps/server` may not
