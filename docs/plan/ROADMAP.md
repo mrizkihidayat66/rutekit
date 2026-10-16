@@ -227,18 +227,34 @@ A page may only be marked done if **all seven** criteria are met:
 
 - [x] Real Playwright driver: one browser per job, one context per item, proxy in the browser (ADR-0026). Verified against real Chromium.
 - [x] Per-provider flow registry: `generic-login` (heuristic, named as such) for the four browser providers, `device-code` (manifest-driven) for `login: 'device-code'`. **No selectors are invented** — a provider without a flow fails with a message that names it.
-- [x] **Live preview** (FR-5.2): periodic frames from the driver + frames the flow sends when there is something worth seeing, both to the WS channel `preview`.
+- [x] **Live preview** (FR-5.2): periodic frames from the driver + frames the flow sends when there is something worth seeing, both to the WS channel `preview`. The console subscribes to the channel and renders the frame in `PreviewPane`.
 - [x] **Captcha** (FR-5.3–5.5): text-marker detection including CJK, a `needs_manual` that stays active, manual input until timeout, optional capsolver solver (skipped without a key).
 - [x] **Two engines** (FR-5.9): Chromium and Camoufox, both installed and verified; `engineAvailable` turns an engine that has not been fetched into a single sentence.
 - [x] **Manual session** (FR-5.7): `POST /jobs/:id/session` refreshes the frame and extends the deadline.
 - [x] **Adaptive concurrency** (FR-5.8): ceiling from cores and RAM, reported via `effectiveConcurrency`.
 - [x] **Stall detection** (FR-5.10): 5 minutes silent → kill, unless the job is waiting for an operator.
 
-> **What is missing:** not a single provider has actually been imported. All four browser
-> providers are served by `generic-login`, and none of their pages has ever been opened —
-> a job against them runs to the step that fails, and that failure is the signal that the
-> provider needs a flow of its own. Writing a per-provider flow is work that needs a real
-> page in front of you.
+> **What has changed since the first pass:** kiro and qoder have been driven against their
+> real pages, and both needed flows of their own — neither was a single-page form, so
+> `generic-login` could not reach them. kiro signs in through Google and obtains an OAuth
+> code via PKCE; qoder signs in through Google, mints a Personal Access Token, and
+> exchanges it for the token a client uses. Both flows are in `flows/` and both were
+> verified at scale (10/10 credentials). The `codebuddy` pair remain on the heuristic.
+>
+> **A bulk import can cost the accounts it creates.** A ten-account kiro batch produced
+> accounts AWS then locked as "unusual user activity". See the trap in
+> `apps/server/src/automation/README.md`.
+>
+> **kiro accounts cannot be used for chat yet.** `wireFamily: 'custom'` has no codec, so
+> `/v1` answers "speaks a wire rutekit cannot translate". The wire is Anthropic-shaped
+> inside AWS EventStream framing; closing the gap needs a real codec.
+>
+> **The console consumes one channel, not all of them.** `preview` is subscribed by
+> `PreviewPane`; `job_update`, `job_step` and `job_needs_manual` are still published by the
+> server and still polled by the console, so the socket is not yet the single source of live
+> job state that ADR-0012 describes. `log_append`, `account_update`, `studio_progress`,
+> `notification` and `system_status` have no subscriber at all — the server side of each
+> exists, and nothing reads them.
 
 ### C8. Tooling (FR-11.x) — done
 
@@ -408,24 +424,15 @@ A page may only be marked done if **all seven** criteria are met:
 > and has: the server boots cleanly after `main.ts` was reworked (migrations 1–16 run,
 > `rutekit listening` appears).
 
-### D3. Distribution (D5) — done, except the Docker image that cannot yet be verified
+### D3. Distribution (D5) — done
 
 - [x] **The server serves the built console.** Not on the D3 list and it blocked all three: the server had no static route at all, because in dev Vite serves the console and proxies the API. The binary and the container have no Vite, so both started a server that 404s at `/`. `routes/console.ts` registers the catch-all **last**, with an SPA fallback and an explicit refusal of prefixes the server reserves.
 - [x] **Standalone binary** (`bun build --compile`), and **the bug that made it unbootable is fixed**: `repoRoot()` counted four levels from `import.meta.dir`, which in a compiled binary is `B:/~BUN/root` — so the result was `\` and `mkdir` threw `EPERM`. It now answers with the working directory when compiled.
 - [x] The `rutekit` CLI — installer (`init`, writes `.env` with two generated secrets and refuses to overwrite without `--force`) + starter (no verb: `rutekit` starts the server by calling its `main()` **in-process** via `import.meta.main`). **The tray was dropped**: it is a desktop concern, and rutekit is a headless server. **It is not published to npm**, so the `bunx rutekit` this bullet used to promise resolves to a 404 — today the CLI runs from a checkout (`bun apps/cli/src/index.ts`), and publishing `apps/cli` is what would make the one-command path real.
-- [ ] Multi-stage, non-root Docker image with `tini` as PID 1 and a healthcheck at `/healthz`. **Written, and its `bun install` step is verified against a real Linux builder** (there `better-sqlite3` fails without `python3 make g++`, and the fix is proven). **The image has never been finished building and the container has never been run** — this machine has no usable Docker daemon.
+- [x] Multi-stage, non-root Docker image with `tini` as PID 1 and a healthcheck at `/healthz`. The automation layer (Node + Chromium) is installed with it, and headed mode works under a read-only rootfs. A `.dockerignore` bug (`**/data` excluding nine console source files from the build context) was found and fixed by building from a clean clone.
 - [x] CI: `.github/workflows/ci.yml` (typecheck, lint, test, coverage gate, build) + a local `bun run ci` that runs the same gates. Every step is a script from `package.json`, so CI cannot drift from what a developer runs.
 - [x] **ADR-0037** records six decisions, including the ones that cannot be verified.
 
-> **What cannot be verified here:**
->
-> **The Docker image has never finished building.** This machine has no usable Docker
-> daemon: the active context points at a remote daemon over SSH, which became
-> unreachable mid-build, and the local daemon is not running. What is proven is the
-> `bun install` step inside the image — that is where `better-sqlite3` fails without a
-> toolchain, and the fix makes it finish (1242 packages, 204 seconds). **The container
-> has never been run.**
->
 > CI was on this list and no longer is. The repository was published, the workflow ran,
 > and it failed twice before it passed — on a clean checkout it found nine source files
 > excluded by `.gitignore`, and then a missing browser for the automation tests. Neither
@@ -474,7 +481,15 @@ A page may only be marked done if **all seven** criteria are met:
 > step passes on GitHub Actions, and getting there caught three defects a local run could not
 > see — nine source files hidden by an ignore rule, a missing browser for the automation
 > tests, and a bundle gate that had been skipping itself because the console was built after
-> the tests rather than before. The Docker image remains the one unverified deliverable.
+> the tests rather than before.
+>
+> The Docker image was the one unverified deliverable, and no longer is: it builds from a
+> clean clone and runs — the console is served, migrations apply, `/healthz` is healthy, and
+> browser-driven import works inside it in both modes. Getting there caught three more
+> defects a local run could not see, which is the same lesson twice: a `.dockerignore` rule
+> excluding nine source files from the build context, `/ws` registered after the console's
+> catch-all so the socket 404'd in every build that had one, and a headed browser failing
+> under a read-only rootfs for want of a display and a writable `HOME`.
 
 ---
 
