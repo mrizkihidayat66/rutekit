@@ -17,12 +17,17 @@
 # arbitrary: `WORKDIR /app` and `apps/web/dist` under it is exactly what a checkout
 # looks like, which is why the same code path works in both.
 #
-# **The automation feature is not installed here.** It runs a Node subprocess
-# driving Playwright and Camoufox, which is a browser download measured in
-# hundreds of megabytes — for a feature an operator may never use. The server
-# starts without it and reports it as unavailable, the same way it does on a
-# machine that has not installed Node. An image that wants it should add that
-# layer itself rather than making every user of this one carry it.
+# **The automation feature is installed, with Chromium and without Camoufox.** It
+# runs a Node subprocess driving a real browser, so the image carries a Node
+# binary beside the Bun-compiled server and a Chromium build for it to drive —
+# the layer costs about 400 MB. Camoufox is the one engine left out: it is a
+# separate hardened Firefox build fetched on top of its own dependency tree, the
+# curated providers' flows all run on Chromium, and the server reports the engine
+# as unavailable rather than failing a job that asks for it. An operator who needs
+# it should add that layer rather than make every user of this image carry it.
+#
+# The worker's dependency closure is three packages — see the runtime stage for
+# why it is copied out of the build store rather than installed again.
 
 # ── Build ────────────────────────────────────────────────────────────────────
 FROM oven/bun:1.4.2-slim AS build
@@ -68,6 +73,32 @@ COPY . .
 # binary's directory has to exist before the console is copied next to it.
 RUN bun run build
 
+# The worker's runtime closure, assembled here so the runtime stage can take it in
+# one copy.
+#
+# **This exists because `COPY` flattens.** A store entry is named with its
+# resolved version (`playwright@1.64.0`) and the runtime has to keep that name —
+# the symlinks inside the tree point at it — but `COPY <dir> /dest/` copies a
+# directory's *contents* into `/dest`, so the name is lost and the next entry
+# lands inside the previous one. `cp -a` under a shell glob keeps both the name
+# and the symlinks, which is what this step buys.
+#
+# Only what the worker imports: `playwright` (with `playwright-core`), and
+# `@rutekit/contracts` with the `zod` it needs. Camoufox is deliberately absent —
+# see the image header.
+RUN set -eux; \
+    mkdir -p /automation/node_modules/.bun \
+             /automation/tools/automation-worker/node_modules/@rutekit \
+             /automation/packages/contracts/node_modules; \
+    cp -a node_modules/.bun/playwright@* node_modules/.bun/playwright-core@* node_modules/.bun/zod@* /automation/node_modules/.bun/; \
+    cp -a tools/automation-worker/src /automation/tools/automation-worker/src; \
+    cp -a tools/automation-worker/package.json /automation/tools/automation-worker/; \
+    cp -a tools/automation-worker/node_modules/playwright /automation/tools/automation-worker/node_modules/; \
+    cp -a tools/automation-worker/node_modules/@rutekit/contracts /automation/tools/automation-worker/node_modules/@rutekit/; \
+    cp -a packages/contracts/src /automation/packages/contracts/src; \
+    cp -a packages/contracts/package.json /automation/packages/contracts/; \
+    cp -a packages/contracts/node_modules/zod /automation/packages/contracts/node_modules/
+
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM debian:bookworm-slim AS runtime
 
@@ -77,8 +108,12 @@ FROM debian:bookworm-slim AS runtime
 # `curl` is for the healthcheck below — `debian-slim` ships no HTTP client, and
 # the alternatives (a `wget` that is not there either, or a raw TCP check that
 # cannot see a 503) are worse than the 200 KB.
+# `libatomic1` is for the Node binary copied in below: Node is linked against it,
+# `slim` does not ship it, and the failure is `node: error while loading shared
+# libraries: libatomic.so.1` with exit code 127 — which reads as "node is not
+# installed" rather than as a missing library.
 RUN apt-get update \
- && apt-get install --no-install-recommends -y ca-certificates curl tini \
+ && apt-get install --no-install-recommends -y ca-certificates curl tini libatomic1 \
  && rm -rf /var/lib/apt/lists/*
 
 # A dedicated user, and the data directory owned by it. Running as root would
@@ -94,14 +129,48 @@ WORKDIR /app
 COPY --from=build --chown=rutekit:rutekit /src/dist/rutekit /app/rutekit
 COPY --from=build --chown=rutekit:rutekit /src/apps/web/dist /app/apps/web/dist
 
+# ── Automation (browser-driven provider sign-in) ─────────────────────────────
+#
+# The worker is a **Node** process — Playwright supports Node, not Bun, and a
+# browser crash must not take the gateway with it (ADR-0009) — so the runtime
+# needs a Node binary beside the Bun-compiled server. Taken from the official
+# image rather than installed from the distribution, which freezes whatever Node
+# its release shipped and is not a thing to leave to chance under a browser
+# driver. Node strips TypeScript types on its own from 22.18 on, which is what
+# lets the worker's `.ts` entrypoint run with no build step.
+COPY --from=node:26-bookworm-slim /usr/local /usr/local
+
+# The worker's dependency closure, and nothing else — assembled in the build stage
+# (see the `cp -a` step there for why it cannot be a selective `COPY`).
+#
+# **The relative shape is what makes it work.** bun writes these links as
+# `../../../node_modules/.bun/…`, so they resolve only if the tree keeps its shape
+# — which is why the layout reproduces a checkout (`tools/`, `packages/`,
+# `node_modules/`) instead of flattening the packages somewhere tidier. Copied as
+# a whole, the links come with it and nothing has to be rebuilt by hand.
+COPY --from=build /automation/ /app/
+
+# Chromium, and the system libraries it needs. `--with-deps` runs the apt install
+# itself, which is why this happens before the user switch — and the browser goes
+# to a path the image owns rather than the default under `$HOME`, so it is part of
+# the image instead of something each container downloads on first use.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+RUN node /app/tools/automation-worker/node_modules/playwright/cli.js install --with-deps chromium \
+ && chown -R rutekit:rutekit /opt/pw-browsers
+
 USER rutekit
 
 # Where the database and generated assets live. A volume so an operator can
 # replace the container without replacing the instance.
+#
+# `RUTEKIT_NODE_BINARY` is what the server spawns the worker with. It is the
+# default value, named here because this image is the one that guarantees the
+# binary exists.
 ENV RUTEKIT_DATA_DIR=/app/data \
     RUTEKIT_DATABASE_URL=/app/data/rutekit.sqlite \
     RUTEKIT_HOST=0.0.0.0 \
-    RUTEKIT_PORT=7331
+    RUTEKIT_PORT=7331 \
+    RUTEKIT_NODE_BINARY=node
 
 # Bound to all interfaces above *because* it is inside a container: the port is
 # only reachable through the published mapping, and a container that listened on
