@@ -497,6 +497,11 @@ async function runFlow(
 }
 
 describe('the generic sign-in flow', () => {
+  // Every test here launches a real browser, so every one of them carries an
+  // explicit timeout. The default is five seconds, which is ample for a browser
+  // launch on an idle machine and not ample when the whole suite runs at once —
+  // and a test that fails only under load is a test whose failure says nothing
+  // about the code. One of these did exactly that before the timeouts were added.
   it('signs in and reads the key off the page after', async () => {
     const { account, recorded } = await runFlow(jobFor('/signin'));
 
@@ -515,12 +520,12 @@ describe('the generic sign-in flow', () => {
     ]);
     expect(recorded.steps.filter((step) => step.status === 'running')).toHaveLength(5);
     expect(recorded.steps.filter((step) => step.status === 'ok')).toHaveLength(5);
-  });
+  }, 60_000);
 
   it('finds an untyped sign-in form, which is what the fallback selector is for', async () => {
     const { account } = await runFlow(jobFor('/signin-plain'));
     expect(account.credential).toContain('sk-proj-');
-  });
+  }, 60_000);
 
   it('refuses a page with no password field, and says which step', async () => {
     // Not a retryable failure: the page is what it is, and another attempt finds
@@ -533,7 +538,7 @@ describe('the generic sign-in flow', () => {
     const job = jobFor('/signin');
     const withToken = { ...job, items: [item('just-a-token')] };
     await expect(runFlow(withToken)).rejects.toThrow(/needs `email:password`/u);
-  });
+  }, 60_000);
 });
 
 describe('a challenge in the way', () => {
