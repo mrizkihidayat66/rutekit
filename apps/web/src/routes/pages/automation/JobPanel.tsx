@@ -19,6 +19,7 @@ import {
 import { Badge } from '@web/components/ui/Badge.tsx';
 import { Button } from '@web/components/ui/Button.tsx';
 import { Card, CardBody, CardHeader } from '@web/components/ui/Card.tsx';
+import { isLiveJobStatus, usePreviewFrame } from '@web/hooks/use-preview-frame.ts';
 import { cn } from '@web/lib/cn.ts';
 import { formatCount, formatRelative } from '@web/lib/format.ts';
 
@@ -88,6 +89,9 @@ export function JobPanel({
   const focused = focusedItem(job);
   const step = currentStep(focused);
   const actions = jobActions(job.status);
+  // Watched only while the job is moving: a finished job sends no more frames,
+  // and an open socket to watch nothing is the cost the channel design avoids.
+  const frame = usePreviewFrame(job.id, isLiveJobStatus(job.status));
 
   const meta = [
     jobRunLabel(job),
@@ -160,7 +164,7 @@ export function JobPanel({
         )}
 
         <div className="grid grid-cols-1 gap-4 @[760px]:grid-cols-2">
-          <PreviewPane job={job} item={focused} step={step} />
+          <PreviewPane job={job} item={focused} step={step} frame={frame} />
 
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">

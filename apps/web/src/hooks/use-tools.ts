@@ -54,8 +54,10 @@ import {
  * somebody edits it, so those are read once and left alone.
  *
  * The chat session is the odd one out: it changes constantly while a reply
- * streams, but the reply arrives over the WebSocket, so there is nothing to
- * poll — the socket writes into this cache directly.
+ * streams, and it is not polled either — the turn is read from its own
+ * `text/event-stream` response as it arrives (`routes/pages/chat/chat-transport.ts`),
+ * so there is no interval here to set. The WebSocket carries live *job* state —
+ * the preview frames and the step updates — and nothing on the chat path.
  */
 
 /** Roll-ups that only move when an operator acts. */

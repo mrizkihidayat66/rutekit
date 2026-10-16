@@ -7,7 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { Job, JobItem, JobStep, JobStatus } from '@contracts';
+import type { Job, JobItem, JobStep, JobStatus, WsPreviewFrame } from '@contracts';
 
 import { JOB_STATUS_LABELS } from '@web/components/patterns/job-vocabulary.ts';
 import { Badge, type BadgeTone } from '@web/components/ui/Badge.tsx';
@@ -17,15 +17,16 @@ import { formatRelative } from '@web/lib/format.ts';
 /**
  * The virtual display the job's browsers are drawing into.
  *
- * A bulk import is opaque by nature — a headless browser signs in somewhere the
- * operator cannot see — so this pane is the window onto it. It shows the step
- * the focused credential is on and, when a challenge blocks the job, becomes the
- * thing the operator is actually looking at rather than a decoration beside the
- * form.
+ * A bulk import is opaque by nature — a browser signs in somewhere the operator
+ * cannot see — so this pane is the window onto it. It draws the frame the worker
+ * last sent, and falls back to the step the focused credential is on when there
+ * is not one yet: before the first screenshot, between jobs, and after the batch
+ * has stopped. When a challenge blocks the job the same frame is what the
+ * operator is solving, which is why this is a picture rather than a status tile.
  *
  * The address is an `xvfb://` scheme rather than a real URL, because that is what
- * is being previewed: the virtual framebuffer the worker renders into, not a
- * page rutekit is serving.
+ * is being previewed: the virtual framebuffer the worker renders into, not a page
+ * rutekit is serving.
  */
 
 type PreviewState = 'queued' | 'streaming' | 'waiting' | 'paused' | 'ended';
@@ -113,10 +114,19 @@ export interface PreviewPaneProps {
   readonly job: Job;
   readonly item: JobItem | undefined;
   readonly step: JobStep | undefined;
+  /**
+   * The most recent frame for this job, or null before one has arrived.
+   *
+   * Null is an ordinary state rather than a failure: a queued job has no worker
+   * yet, a finished one has stopped sending, and the first frame of a running one
+   * is a second or two away. All three draw the status tile, which is what this
+   * pane drew in every case until it was connected to the channel.
+   */
+  readonly frame?: WsPreviewFrame | null;
   readonly className?: string;
 }
 
-export function PreviewPane({ job, item, step, className }: PreviewPaneProps) {
+export function PreviewPane({ job, item, step, frame = null, className }: PreviewPaneProps) {
   const state = STATE_OF[job.status];
   const Glyph = GLYPHS[state];
 
@@ -142,26 +152,44 @@ export function PreviewPane({ job, item, step, className }: PreviewPaneProps) {
           <span className="truncate rounded-key bg-surface-2 px-2 py-0.5 font-mono text-[0.625rem] text-text-subtle">
             xvfb://{job.providerId}
           </span>
+          {frame === null ? null : (
+            <span className="ml-auto shrink-0 text-[0.625rem] tabular-nums text-text-subtle">
+              {formatRelative(frame.capturedAt)}
+            </span>
+          )}
         </div>
 
-        <div className="relative flex aspect-video items-center justify-center overflow-hidden">
-          {state === 'streaming' ? (
-            <div className="sheen absolute inset-0" aria-hidden="true" />
-          ) : null}
-          <div className="relative flex max-w-sm flex-col items-center gap-2 px-6 text-center">
-            <span
-              className={cn(
-                'flex size-10 items-center justify-center rounded-pill border',
-                TILES[state],
-              )}
-            >
-              <Glyph aria-hidden="true" className="size-4" />
-            </span>
-            <p className="text-sm font-medium text-text">{captionOf(state, job, step)}</p>
-            <p className="text-xs leading-relaxed text-text-muted">
-              {detailOf(state, job, item, step)}
-            </p>
-          </div>
+        <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-black/40">
+          {frame === null ? (
+            <>
+              {state === 'streaming' ? (
+                <div className="sheen absolute inset-0" aria-hidden="true" />
+              ) : null}
+              <div className="relative flex max-w-sm flex-col items-center gap-2 px-6 text-center">
+                <span
+                  className={cn(
+                    'flex size-10 items-center justify-center rounded-pill border',
+                    TILES[state],
+                  )}
+                >
+                  <Glyph aria-hidden="true" className="size-4" />
+                </span>
+                <p className="text-sm font-medium text-text">{captionOf(state, job, step)}</p>
+                <p className="text-xs leading-relaxed text-text-muted">
+                  {detailOf(state, job, item, step)}
+                </p>
+              </div>
+            </>
+          ) : (
+            // `object-contain` rather than `object-cover`: the frame is the
+            // worker's viewport, and cropping it would hide the part of the page
+            // the operator opened this pane to read.
+            <img
+              src={frame.frameUrl}
+              alt={`The browser ${job.providerId} is being signed in through`}
+              className="size-full object-contain"
+            />
+          )}
         </div>
       </div>
     </div>
