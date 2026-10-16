@@ -266,9 +266,18 @@ const HOSTED: Record<string, string> = {
     </script>
   </body></html>`,
 
-  // qoder's Google entry point, and the two pages behind it.
+  // qoder's sign-in page, where the flow starts. It carries the email form and,
+  // beside it, the Google control the flow presses — the page a person meets.
+  'qoder.com/users/sign-in': `<!doctype html><html><body>
+    <h1>Sign in</h1>
+    <a href="/sso/login/google?oauth_callback=https%3A%2F%2Fqoder.com%2Faccount%2Fprofile">Sign in with Google</a>
+    <input id="basic_email" placeholder="Enter your email address" />
+    <button>Continue</button>
+  </body></html>`,
+
+  // Where that control leads, and the page behind it.
   'qoder.com/sso/login/google': `<!doctype html><html><body>
-    <h1>Sign in with Google</h1>
+    <h1>Redirecting</h1>
     <script>
       location.href = 'https://accounts.google.com/v3/signin/identifier?next=qoder';
     </script>
@@ -640,18 +649,20 @@ describe('the device-code flow', () => {
 
 describe('the qoder flow', () => {
   /**
-   * qoder's job, pointed at the Google entry point its manifest names.
+   * qoder's job, pointed at the sign-in page its manifest names.
    *
    * The start URL is the real one — the flow navigates to whatever the manifest
    * says — and the host is served by the test's own routing, so the flow runs its
-   * shipped logic against the hostname it ships with.
+   * shipped logic against the hostname it ships with. The flow presses the Google
+   * control on that page rather than being handed the SSO endpoint's URL, so the
+   * fixture is the page a person meets.
    */
   const qoderJob = (): WorkerJob =>
     jobFor('', {
       providerId: 'qoder',
       automation: {
         login: 'browser',
-        startUrl: 'https://qoder.com/sso/login/google?oauth_callback=https://qoder.com/account/profile',
+        startUrl: 'https://qoder.com/users/sign-in',
         captcha: true,
         humanTimeoutSeconds: 180,
       },
@@ -683,6 +694,7 @@ describe('the qoder flow', () => {
 
     expect(namesOf(recorded)).toEqual([
       'open',
+      'choose Google',
       'sign in with Google',
       'wait for qoder',
       'create a token',

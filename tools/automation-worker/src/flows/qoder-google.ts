@@ -1,7 +1,13 @@
-import { RetryableError, type ImportedAccount } from '../driver.ts';
+import { ItemAbandonedError, RetryableError, type ImportedAccount } from '../driver.ts';
 import { driveGoogleSignIn } from './google-signin.ts';
 import { asFlowError, clickAny, STEP_TIMEOUT_MS } from './shared.ts';
-import { splitCredential, waitFor, type FlowContext, type ProviderFlow } from './types.ts';
+import {
+  AbortError,
+  splitCredential,
+  waitFor,
+  type FlowContext,
+  type ProviderFlow,
+} from './types.ts';
 
 /**
  * Qoder's sign-in, which is Google's, and the token that comes out of it (C7c).
@@ -39,6 +45,9 @@ import { splitCredential, waitFor, type FlowContext, type ProviderFlow } from '.
 
 /** Where qoder's account pages live, and where the token is created. */
 const INTEGRATIONS_PATH = '/account/integrations';
+
+/** The control that hands the sign-in to Google, found by its words. */
+const GOOGLE_CONTROL = 'a:has-text("Sign in with Google"):visible, a[href*="/sso/login/google"]:visible';
 
 /** The control that opens the token form, and the fields inside it. */
 const NEW_TOKEN = 'button:has-text("New Token"):visible';
@@ -107,8 +116,41 @@ export const qoderGoogle: ProviderFlow = {
     }
     step('open', 'ok', page.url());
 
-    // The start URL is qoder's Google entry point, so the hand-off has already
-    // happened by the time the walk begins.
+    // Start where a person starts, and press the button they press.
+    //
+    // The manifest names qoder's sign-in page rather than its SSO endpoint, so
+    // the hand-off is a click on the page's own control instead of a URL this
+    // flow has to know. That matters for a reason beyond appearances: the SSO URL
+    // carries a callback and a client id, and a flow that spells them out breaks
+    // the day qoder changes them — whereas a flow that clicks the button follows
+    // wherever qoder now points it.
+    step('choose Google', 'running');
+    try {
+      await waitFor(
+        page.waitForSelector(GOOGLE_CONTROL, { timeout: STEP_TIMEOUT_MS }),
+        signal,
+        STEP_TIMEOUT_MS + 1_000,
+        "qoder's Google control",
+      );
+    } catch (cause) {
+      if (cause instanceof AbortError) throw new ItemAbandonedError(cause.message);
+      throw new Error(
+        `${job.providerId} showed no Google control at ${page.url()}, so this flow cannot sign in`,
+      );
+    }
+    try {
+      await page.locator(GOOGLE_CONTROL).first().click();
+      await waitFor(
+        page.waitForURL((url) => !url.hostname.endsWith('qoder.com'), { timeout: STEP_TIMEOUT_MS }),
+        signal,
+        STEP_TIMEOUT_MS + 1_000,
+        "Google's sign-in page",
+      );
+    } catch (cause) {
+      throw asFlowError(cause, 'choose Google', "qoder's Google control could not be used");
+    }
+    step('choose Google', 'ok', page.url());
+
     await driveGoogleSignIn(context, { email, password });
 
     step('wait for qoder', 'running');

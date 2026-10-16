@@ -180,16 +180,17 @@ export const qoder: ProviderManifestInput = {
     { class: 'transient', statuses: [500, 502, 503, 504] },
   ],
 
-  // Qoder's **Google** entry point, not its email-and-password form.
+  // Qoder's **sign-in page**, which is where a person starts.
   //
-  // Both were driven against a live account. The form works — email, then password
-  // — and then it hands over an Alibaba slider that only a person or a paid solver
-  // can pass; the Google button beside it reaches the same account with no
-  // challenge. `oauth_callback` is qoder's own parameter and points at the account
-  // page the sign-in returns to (see `flows/qoder-google.ts`).
+  // The flow presses the Google button on this page rather than being handed the
+  // SSO endpoint's URL: the button is qoder's own, so the hand-off follows
+  // wherever qoder points it and does not carry a callback and a client id this
+  // manifest would have to keep in step. The email-and-password form on the same
+  // page works and then ends at an Alibaba slider, which is why the button beside
+  // it is the path taken (see `flows/qoder-google.ts`).
   automation: {
     login: 'browser',
-    startUrl: 'https://qoder.com/sso/login/google?oauth_callback=https://qoder.com/account/profile',
+    startUrl: 'https://qoder.com/users/sign-in',
     captcha: true,
   },
 };
