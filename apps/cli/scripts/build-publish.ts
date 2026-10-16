@@ -101,6 +101,15 @@ await cp(CONSOLE_SOURCE, join(OUT, 'console'), {
   filter: (source) => !source.endsWith('.map'),
 });
 
+// The two documents npm surfaces on the package page. Without them the registry shows an
+// empty readme, which is a poor first impression for a package whose whole point is that
+// someone can install it without reading the repository first.
+for (const name of ['README.md', 'LICENSE']) {
+  const from = join(ROOT, name);
+  if (!(await Bun.file(from).exists())) fail(`${name} is missing from the repository root.`);
+  await cp(from, join(OUT, name));
+}
+
 const manifest = {
   name: 'rutekit',
   version,
@@ -109,19 +118,11 @@ const manifest = {
   license: 'MIT',
   type: 'module',
   bin: { rutekit: './rutekit.js' },
-  files: ['rutekit.js', 'console'],
+  files: ['rutekit.js', 'console', 'README.md', 'LICENSE'],
   engines: { bun: '>=1.2.0' },
   dependencies,
   optionalDependencies,
-  keywords: [
-    'ai',
-    'gateway',
-    'router',
-    'llm',
-    'openai-compatible',
-    'self-hosted',
-    'anthropic',
-  ],
+  keywords: ['ai', 'gateway', 'router', 'llm', 'openai-compatible', 'self-hosted', 'anthropic'],
   repository: {
     type: 'git',
     url: 'git+https://github.com/mrizkihidayat66/rutekit.git',
