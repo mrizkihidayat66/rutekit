@@ -58,8 +58,9 @@ refuses private and reserved address ranges, which is the SSRF guard.
 
 ## Hardening a deployment
 
-- Set both secrets. `bunx rutekit init` generates them. An instance that starts without them
-  warns at boot and cannot store credentials.
+- Set both secrets. `bun apps/cli/src/index.ts init` generates them — the CLI is not
+  published, so it runs from a checkout. An instance that starts without them warns at boot
+  and cannot store credentials.
 - Keep the bind on loopback unless something in front of it terminates TLS and authenticates.
 - Terminate TLS at a reverse proxy if the console is reachable beyond the host, and set
   `RUTEKIT_CONSOLE_ORIGIN` so OAuth redirects return to the right address.

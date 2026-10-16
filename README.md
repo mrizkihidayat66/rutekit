@@ -65,23 +65,27 @@ may name an alias or a combo rather than a model.
 
 Every setting is a `RUTEKIT_*` environment variable, and [`.env.example`](.env.example)
 documents all of them. Two secrets are required — `RUTEKIT_ENCRYPTION_KEY` encrypts stored
-provider credentials and `RUTEKIT_AUTH_SECRET` signs sessions:
+provider credentials and `RUTEKIT_AUTH_SECRET` signs sessions — and the CLI generates both:
 
 ```bash
-bunx rutekit init
+bun apps/cli/src/index.ts init
 ```
 
-`rutekit init` writes a `.env` with both generated. An instance started without one still
-comes up, keeping its database in `./data` and warning about the secrets it is missing.
+That writes a `.env` with both generated, refusing to overwrite one that already exists
+unless you pass `--force`. An instance started without a `.env` still comes up, keeping its
+database in `./data` and warning about the secrets it is missing.
+
+The CLI is not published to npm, so `bunx rutekit` does not resolve yet — run it from a
+checkout as above. Publishing `apps/cli` is what would make the one-command path real.
 
 ## Deployment
 
-| Method        | Command                                       |
-| ------------- | --------------------------------------------- |
-| Console + API | `bun run dev` (development)                   |
-| Standalone    | `bun run build` → `dist/rutekit`              |
-| Container     | `docker build -t rutekit .`                   |
-| CLI           | `bunx rutekit init` then `bunx rutekit start` |
+| Method        | Command                                                    |
+| ------------- | ---------------------------------------------------------- |
+| Console + API | `bun run dev` (development)                                |
+| Standalone    | `bun run build` → `dist/rutekit`                           |
+| Container     | `docker build -t rutekit .`                                |
+| CLI           | `bun apps/cli/src/index.ts init`, then the same without it |
 
 The standalone binary embeds the console and needs no other files. The container runs
 non-root with `tini` as PID 1. See [ADR-0037](docs/adr/0037-distribution.md).

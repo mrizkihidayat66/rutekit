@@ -412,7 +412,7 @@ A page may only be marked done if **all seven** criteria are met:
 
 - [x] **The server serves the built console.** Not on the D3 list and it blocked all three: the server had no static route at all, because in dev Vite serves the console and proxies the API. The binary and the container have no Vite, so both started a server that 404s at `/`. `routes/console.ts` registers the catch-all **last**, with an SPA fallback and an explicit refusal of prefixes the server reserves.
 - [x] **Standalone binary** (`bun build --compile`), and **the bug that made it unbootable is fixed**: `repoRoot()` counted four levels from `import.meta.dir`, which in a compiled binary is `B:/~BUN/root` — so the result was `\` and `mkdir` threw `EPERM`. It now answers with the working directory when compiled.
-- [x] `bunx rutekit` CLI — installer (`init`, writes `.env` with two generated secrets and refuses to overwrite without `--force`) + starter (`start`, calls the server's `main()` **in-process** via `import.meta.main`). **The tray was dropped**: it is a desktop concern, and rutekit is a headless server.
+- [x] The `rutekit` CLI — installer (`init`, writes `.env` with two generated secrets and refuses to overwrite without `--force`) + starter (no verb: `rutekit` starts the server by calling its `main()` **in-process** via `import.meta.main`). **The tray was dropped**: it is a desktop concern, and rutekit is a headless server. **It is not published to npm**, so the `bunx rutekit` this bullet used to promise resolves to a 404 — today the CLI runs from a checkout (`bun apps/cli/src/index.ts`), and publishing `apps/cli` is what would make the one-command path real.
 - [ ] Multi-stage, non-root Docker image with `tini` as PID 1 and a healthcheck at `/healthz`. **Written, and its `bun install` step is verified against a real Linux builder** (there `better-sqlite3` fails without `python3 make g++`, and the fix is proven). **The image has never been finished building and the container has never been run** — this machine has no usable Docker daemon.
 - [x] CI: `.github/workflows/ci.yml` (typecheck, lint, test, coverage gate, build) + a local `bun run ci` that runs the same gates. Every step is a script from `package.json`, so CI cannot drift from what a developer runs.
 - [x] **ADR-0037** records six decisions, including the ones that cannot be verified.
@@ -431,8 +431,10 @@ A page may only be marked done if **all seven** criteria are met:
 > excluded by `.gitignore`, and then a missing browser for the automation tests. Neither
 > was visible from this machine. It now completes every step in about four and a half
 > minutes.
-> There is also no installer that downloads a runtime, and no auto-update: `bunx rutekit`
-> assumes Bun is installed.
+>
+> There is also no installer that downloads a runtime, no auto-update, and no published
+> package: `rutekit` is not on npm, so the CLI is run from a checkout rather than with
+> `bunx`.
 
 ### D4. Documentation — done
 

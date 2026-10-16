@@ -4,7 +4,7 @@ Status: **Accepted** · Date: 2026-10-14 · Related decisions: D5, NFR-9, ADR-00
 
 ## Context
 
-D3 is the distribution group: the `bunx rutekit` CLI (installer + starter), a standalone
+D3 is the distribution group: a `rutekit` CLI (installer + starter), a standalone
 binary, a non-root Docker image, and CI with typecheck/test/coverage/boundary gates.
 
 On inspection, there was one thing on no list at all that blocked all three:
@@ -103,7 +103,7 @@ is a headless server run on a machine that may have no GUI at all. Comparable to
 this space all ship one; none of them is reason enough.
 
 What is **not** done and not claimed: an installer that downloads a runtime, and
-auto-update. `bunx rutekit` assumes Bun is present.
+auto-update, and no published package. The CLI assumes Bun is present.
 
 ### 5. Automation is not installed in the image
 
@@ -152,7 +152,9 @@ It has since been run against a clean checkout, and it passed. See "Resolved Sin
   either. What was verified is the dependency-install step, not the image. An earlier draft
   of this ADR claimed the image was "genuinely built and run"; that was wrong and is
   corrected here.
-- **There is no installer and no auto-update.** `bunx rutekit` assumes Bun is installed.
+- **There is no installer, no auto-update, and no published package.** The CLI assumes Bun
+  is installed, and `apps/cli` is `private: true` and has never been published, so `bunx
+rutekit` resolves against npm and 404s. It runs from a checkout.
 - **The image has no automation.** That feature needs Node + Playwright + Camoufox, which
   are not installed there.
 - **The Docker image uses `debian-slim` + a compiled binary, not `oven/bun`.** That keeps
@@ -195,7 +197,7 @@ still unverified — that one needs a Docker daemon, not a runner.
 
 | Alternative                                | Rejected because                                                                                                            |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| Leave it API-only, console dev-only        | A `bunx rutekit` that cannot show the console is half a product                                                             |
+| Leave it API-only, console dev-only        | A CLI that cannot show the console is half a product                                                                        |
 | Embed the build output into the binary     | The biggest change, and a binary that needs a folder beside it is not a standalone binary — postponed, not rejected forever |
 | `buildApp` finding `dist` itself           | Every test would depend on whether someone had ever run a build                                                             |
 | Fail to boot when `dist` is missing        | Breaks `bun run dev` for everyone                                                                                           |

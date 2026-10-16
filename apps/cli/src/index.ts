@@ -29,9 +29,11 @@ import { init } from './init.ts';
  * The version the package declares, so the two cannot drift.
  *
  * Read from disk rather than imported: a JSON import is resolved at bundle time
- * and would report whatever the version was when the bundle was built. A missing
- * or unreadable manifest is not worth failing a `--version` over, so it falls
- * back to the placeholder the root package uses.
+ * and would report whatever the version was when the bundle was built.
+ *
+ * `0.0.0` is what an unreadable manifest reports. It is the conventional "unknown"
+ * rather than a real version, because a missing manifest is not worth failing a
+ * `--version` over — and printing nothing would look like a broken command.
  */
 function version(): string {
   try {
