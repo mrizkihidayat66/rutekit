@@ -69,7 +69,8 @@ NFR-9 caps the **initial bundle** at 300 KB gzip. That number is about first pai
 test measures exactly what `index.html` loads — not all of `dist`, which pulls in Monaco,
 mermaid, and the three.js viewer and is two orders of magnitude larger.
 
-The result is **193 KB gzip** (179 JS + 13 CSS), 36% under the limit. The test also names
+The result was **193 KB gzip** (179 JS + 13 CSS) when measured during D5, 36% under the
+limit. The test also names
 the heavy things that must not enter the initial load, so a regression points at itself
 instead of showing up as a budget that shifted slightly.
 
@@ -135,8 +136,8 @@ produced four errors.
 - NFR-4 is measured, not assumed: LCP 224 ms median / 228 ms worst against a 1500 ms budget.
 - NFR-6 is enforced by arithmetic over tokens, not by eye. 13 text contrast assertions pass
   in both themes, and a regression now fails.
-- NFR-9 is measured against the real initial load: 193 KB of 300 KB, with heavy library
-  names pinned so they cannot enter.
+- NFR-9 is measured against the real initial load rather than the whole `dist`, with heavy
+  library names pinned so they cannot enter the eager graph.
 - All 25 routes mount and render in two engines — Chromium and WebKit — with no console
   errors, so the console is not accidentally Chromium-only.
 - One real contrast bug was found and fixed (`--color-warning`, 2.88:1).

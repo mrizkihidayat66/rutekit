@@ -184,7 +184,11 @@ export const consolePaths = {
    * card at a time.
    */
   vccReveal: '/tools/vcc/:id/reveal',
-  /** The BIN catalogue; `/tools/vcc/:id` would swallow it, so it is listed first. */
+  /**
+   * The BIN catalogue. Anything that matches routes against these templates has to
+   * test this literal before `/tools/vcc/:id`, or the parameter swallows it — see the
+   * console's mock handlers, which register it first for that reason.
+   */
   vccBins: '/tools/vcc/bins',
 
   // System — Customization, Settings, Auth

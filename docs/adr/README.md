@@ -47,7 +47,7 @@ marked **Superseded by ADR-NNNN**.
 | 0035 | [Token Saver savings](0035-token-saver-savings.md)                                     | One JSON column on `requests`; measured around the pipeline only; NULL = did not run, not zero; only `/v1` turns count                                  | Accepted |
 | 0036 | [Operational hardening](0036-operational-hardening.md)                                 | Shutdown order extracted + pinned; forward migration tested with data; archive tested through a file; a replacing restore = no duplicates               | Accepted |
 | 0037 | [Distribution](0037-distribution.md)                                                   | The server serves the console + SPA fallback; `repoRoot` answers cwd when compiled; CLI in-process; tray dropped; CI green on a clean checkout          | Accepted |
-| 0038 | [Polish: contrast measured, borders recorded](0038-polish-a11y-and-performance.md)     | Contrast from tokens (axe is blind in jsdom); `--color-warning` fixed, control borders recorded as a gap; bundle 193/300KB; LCP cannot be measured here | Accepted |
+| 0038 | [Polish: contrast measured, borders recorded](0038-polish-a11y-and-performance.md)     | Contrast from tokens (axe is blind in jsdom); `--color-warning` fixed, control borders recorded as a gap; bundle inside the 300KB budget                | Accepted |
 
 ## Decision → Document Map
 

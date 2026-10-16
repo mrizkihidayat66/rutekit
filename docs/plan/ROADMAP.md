@@ -440,7 +440,8 @@ A page may only be marked done if **all seven** criteria are met:
 - [x] `ARCHITECTURE.md` — new. The monorepo and why `apps/` differs from `packages/`, the machine-enforced boundaries, the flow of one `/v1` request with its three invariants, the composition root and middleware order, boot/shutdown, persistence, pool, and test architecture.
 - [x] `AGENTS.md` — new. Commands, machine-enforced rules, and **14 pitfalls** each of which has actually bitten — from the bun:sqlite `$` sigil to `MSYS_NO_PATHCONV` in Git Bash.
 - [x] `CONTRIBUTING.md` — existed since PHASE A, untouched.
-- [x] **One document per folder** — 22 `apps/server/src/<folder>/README.md` files, each 38–55 lines: what that folder owns, its key files, and **the invariants that must not be broken**. Written by reading the code, not guessing from folder names.
+- [x] **One document per folder, for the server** — 22 `apps/server/src/<folder>/README.md` files, each 38–55 lines: what that folder owns, its key files, and **the invariants that must not be broken**. Written by reading the code, not guessing from folder names.
+- [x] **One document per workspace, for the five that carry the architecture** — `packages/contracts`, `packages/translator`, `packages/compression`, `packages/provider-registry`, and `apps/web`. The server was documented folder by folder from the start, but the frontend and the packages it depends on were described only as a line each in `ARCHITECTURE.md`, so opening `packages/translator/` on GitHub showed thirty source files and no entry point. The six remaining workspaces are small enough (3–12 files) to be covered there.
 - [x] **A complete `.env.example`** — it turned out **not** to be: four variables read by `config.ts` were documented nowhere (`RUTEKIT_WARMUP_INTERVAL_MS`, `RUTEKIT_WARMUP_TIMEOUT_MS`, `RUTEKIT_PROXY_PROBE_URL`, `RUTEKIT_PROXY_PROBE_TIMEOUT_MS`). Added, and there is now **a test that compares the two lists** — fired at by deleting one line.
 - [x] An ADR for every major decision (D1–D17) — satisfied since PHASE A (ADR-0001–0017). What was missing was the **decision map**: the 17 rows D1–D17 pointed only at prose documents, so a reader asking "why Bun?" had to guess which ADR. They now all point at their ADR directly.
 - [x] `docs/README.md` — index updated (17 → 37 ADRs), pointing at ARCHITECTURE/AGENTS, and its document map names the per-folder READMEs.
@@ -449,7 +450,7 @@ A page may only be marked done if **all seven** criteria are met:
 ### D5. Polish — done as far as it can be verified here
 
 - [x] **WCAG AA contrast audit (NFR-6)** — measured from the tokens in `app.css`, not with axe: `jsdom` has no layout and no color compositing, so axe inside a test would be green without meaning anything. 13 text assertions pass in both themes, including the worst case (a `bg-<name>/12` chip over the page, composited). **One real bug fixed:** `--color-warning` sat at 2.88:1 as a chart color, now `#d37005` (3.12:1).
-- [x] **Performance audit, bundle (NFR-9)** — `bundle-size.test.ts` measures exactly what `index.html` loads: **193 KB gzip of the 300 KB budget**. It also pins the names of heavy libraries (Monaco, mermaid, cytoscape, wasm) so they cannot enter the initial load.
+- [x] **Performance audit, bundle (NFR-9)** — `bundle-size.test.ts` measures exactly what `index.html` loads against the **300 KB budget** (193 KB when measured during D5). It also pins the names of heavy libraries (Monaco, mermaid, cytoscape, wasm) so they cannot enter the initial load.
 - [x] **Structural a11y** — `eslint-plugin-jsx-a11y` with the `recommended` set. 20 findings were examined one by one; all were false positives or deliberate patterns, and **every exception is written with its reason in `eslint.config.js`**. The remaining rules are verified to bite with a deliberately bad probe file (4 errors).
 - [x] **LCP <1.5s (NFR-4)** — **measured: 224 ms median, 228 ms worst of six cold runs** against the production console, a sixth of the budget. It had been reported as unmeasurable, and that was wrong: the Browser pane cannot paint, but a real headless Chromium driven through Playwright can, and that is what took the number. The same run measured CLS at 0.0001 and TTFB at ~2 ms.
 - [ ] **Manual keyboard test of every page** — needs a human pressing Tab on 27 pages. An agent cannot do it.
@@ -465,7 +466,7 @@ A page may only be marked done if **all seven** criteria are met:
 
 > **GATE D status.** Every NFR is met or honestly bounded: NFR-4 (LCP) is measured at 224 ms
 > against a 1500 ms budget, NFR-6 (contrast) is machine-checked from the tokens with one
-> recorded gap, NFR-9 (bundle) is measured at 193 KB of 300 KB. Cross-browser is verified on
+> recorded gap, NFR-9 (bundle) is enforced against a 300 KB budget. Cross-browser is verified on
 > Chromium and WebKit; Firefox could not be launched here and is stated as untested. Manual
 > keyboard testing needs a human and is not claimed. CI is green on a clean checkout: every
 > step passes on GitHub Actions, and getting there caught three defects a local run could not

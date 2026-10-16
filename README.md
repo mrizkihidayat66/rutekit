@@ -99,8 +99,10 @@ non-root with `tini` as PID 1. See [ADR-0037](docs/adr/0037-distribution.md).
 | [SECURITY.md](SECURITY.md)                   | Reporting a vulnerability, and the security model |
 | [AGENTS.md](AGENTS.md)                       | Working rules for AI agents and humans            |
 
-Each top-level folder in `apps/server/src` has its own README describing what it owns and
-which invariants it must not break.
+The architecture is documented where it lives: each top-level folder in
+`apps/server/src` has a README, as do `packages/contracts`, `packages/translator`,
+`packages/compression`, `packages/provider-registry` and `apps/web`. Each says what the
+unit owns, which files matter, and which invariants must not be broken.
 
 ## Development
 

@@ -55,7 +55,9 @@ docs/
 Outside `docs/`, two top-level documents complete the picture:
 [ARCHITECTURE.md](../ARCHITECTURE.md) (how the system is put together) and
 [AGENTS.md](../AGENTS.md) (practical working rules and traps already found). Beyond those,
-every top-level folder in `apps/server/src` has its own README.
+every top-level folder in `apps/server/src` has its own README, as do the five workspaces
+that carry the architecture: `packages/contracts`, `packages/translator`,
+`packages/compression`, `packages/provider-registry` and `apps/web`.
 
 ## Documentation Rules
 
