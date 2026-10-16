@@ -158,6 +158,34 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 RUN node /app/tools/automation-worker/node_modules/playwright/cli.js install --with-deps chromium \
  && chown -R rutekit:rutekit /opt/pw-browsers
 
+# What a **headed** browser needs, which a container does not have by default.
+#
+# Headed Chromium refuses to start without a display, and under a read-only rootfs
+# it refuses again without a writable `HOME` — its crash handler and profile need
+# somewhere to write, and `/home/rutekit` is part of the read-only image. Both
+# failures reach the job as the same sentence, `Target page, context or browser
+# has been closed`, which is why this is spelled out rather than left to be
+# rediscovered: headless works fine without either, so the difference only shows
+# up when somebody picks the other mode.
+#
+# `xvfb` is already in the image — `playwright install --with-deps` brings it —
+# so this is a start, not an install. `HOME` is safe to point at `/tmp`: nothing
+# in the server or the worker reads it, and the tmpfs is writable and per-container.
+#
+# The socket directory has to be created at run time because `/tmp` is a tmpfs
+# mounted over whatever the image had there.
+RUN printf '%s\n' \
+      '#!/bin/sh' \
+      '# Start a display for headed Chromium, then hand over to the server.' \
+      'set -e' \
+      'mkdir -p /tmp/.X11-unix' \
+      'Xvfb :99 -screen 0 1280x900x24 -nolisten tcp >/tmp/xvfb.log 2>&1 &' \
+      'export DISPLAY=:99' \
+      'export HOME=/tmp' \
+      'exec /usr/bin/tini -- /app/rutekit' \
+    > /usr/local/bin/rutekit-entrypoint.sh \
+ && chmod 0755 /usr/local/bin/rutekit-entrypoint.sh
+
 USER rutekit
 
 # Where the database and generated assets live. A volume so an operator can
@@ -180,10 +208,11 @@ EXPOSE 7331
 
 VOLUME ["/app/data"]
 
-# `tini` as PID 1. The server handles SIGTERM itself and drains, but it needs the
-# signal to arrive — without an init, a shell-wrapped process can swallow it and
-# the container gets SIGKILLed after the timeout instead of shutting down cleanly.
-ENTRYPOINT ["/usr/bin/tini", "--", "/app/rutekit"]
+# The entrypoint starts the display and then `exec`s `tini`, so `tini` is still
+# what reaps and forwards signals — the server handles SIGTERM itself and drains,
+# but it needs the signal to arrive, and a shell that stayed as PID 1 could
+# swallow it and get the container SIGKILLed instead of shutting down cleanly.
+ENTRYPOINT ["/usr/local/bin/rutekit-entrypoint.sh"]
 
 # `/healthz`, not `/readyz`, and the difference matters here. `/readyz` turns 503
 # the moment a drain begins — which is exactly when a supervisor should stop
