@@ -99,11 +99,22 @@ export function buildApp(deps: AppDeps): Hono<AppEnv> {
 
   app.route('/v1', v1Routes(deps));
 
-  // Last, so every API route above wins first. A no-op when there is no build —
+  // **Before the console's catch-all, and this ordering is the whole route.**
+  // `consoleRoutes` registers `app.get('*')`, and Hono matches in registration
+  // order — so a `/ws` declared after it is never reached. It is not merely
+  // shadowed either: `/ws` is on the console's reserved list, so the catch-all
+  // answers it with a 404 rather than with `index.html`, and the failure reads as
+  // a route that was never registered.
+  //
+  // That is exactly what happened. The socket worked in development, where Vite
+  // serves the console and `consoleRoutes` returns early because there is no
+  // build, and was a 404 in the binary and the container — the two places a
+  // browser-driven feature is actually used.
+  app.get('/ws', wsRoute(deps));
+
+  // Last, so every route above wins first. A no-op when there is no build —
   // which is the case in development, where Vite serves the console.
   consoleRoutes(app, deps.console);
-
-  app.get('/ws', wsRoute(deps));
 
   return app;
 }
