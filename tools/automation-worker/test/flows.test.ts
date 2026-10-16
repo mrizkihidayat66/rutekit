@@ -38,9 +38,19 @@ import { resolveFlow, REGISTERED_PROVIDERS } from '../src/flows/index.ts';
 let server: Server;
 let base: string;
 
-/** Fills in the fixture server's own origin, for a page that links back to it. */
+/**
+ * Fills in what a fixture cannot know on its own.
+ *
+ * `__TARGET_DAY__` is the day-of-month one year from today — the date qoder's
+ * expiry is supposed to carry, computed here the way the flow computes it so the
+ * fixture can hold the flow to it.
+ */
 function render(page: string): string {
-  return page.replaceAll('__BASE__', base);
+  const target = new Date();
+  target.setFullYear(target.getFullYear() + 1);
+  return page
+    .replaceAll('__BASE__', base)
+    .replaceAll('__TARGET_DAY__', String(target.getDate()));
 }
 
 function serve(
@@ -272,17 +282,23 @@ const HOSTED: Record<string, string> = {
   </body></html>`,
 
   // The token page. The shapes the flow keys on are all here: the control that
-  // opens the form, the two required fields, a day cell the picker must be given
-  // before Create will enable, and the dialog that prints the token once.
+  // opens the form, the two required fields, a full month of day cells, and the
+  // dialog that prints the token once.
+  //
+  // **The calendar accepts exactly one day, and it is the day a year from now.**
+  // That is the assertion this fixture exists to make: a flow that picks any other
+  // day — the last cell in the month, or the first — leaves Create disabled and
+  // fails at the step that says so. Modelling the requirement rather than the
+  // picker's incidental behaviour is deliberate; qoder's real calendar happens to
+  // cap at a year out, so "the last cell" lands on the right date there for a
+  // reason the flow did not choose.
   'qoder.com/account/integrations': `<!doctype html><html><body>
     <h1>Personal Access Tokens</h1>
     <button id="new">New Token</button>
     <div id="form" style="display:none">
       <input placeholder="Enter access token name" />
       <input placeholder="Set an expiration date" readonly />
-      <div class="ant-picker-cell-in-view">
-        <span class="ant-picker-cell-inner">1</span>
-      </div>
+      <div id="calendar">${Array.from({ length: 31 }, (_, index) => `<div class="ant-picker-cell-in-view"><span class="ant-picker-cell-inner">${String(index + 1)}</span></div>`).join('')}</div>
       <button id="create" disabled>Create</button>
     </div>
     <div role="dialog" id="dialog" style="display:none">
@@ -292,11 +308,16 @@ const HOSTED: Record<string, string> = {
     <script>
       const form = document.getElementById('form');
       const create = document.getElementById('create');
+      const field = document.querySelector('input[placeholder="Set an expiration date"]');
+      const targetDay = '__TARGET_DAY__';
       document.getElementById('new').addEventListener('click', () => { form.style.display = 'block'; });
-      document.querySelector('.ant-picker-cell-inner').addEventListener('click', () => {
-        document.querySelector('input[placeholder="Set an expiration date"]').value = '2027-10-01';
-        create.disabled = false;
-      });
+      for (const cell of document.querySelectorAll('.ant-picker-cell-inner')) {
+        cell.addEventListener('click', () => {
+          if (cell.textContent !== targetDay) return;
+          field.value = '2027-' + targetDay;
+          create.disabled = false;
+        });
+      }
       create.addEventListener('click', () => { document.getElementById('dialog').style.display = 'block'; });
     </script>
   </body></html>`,

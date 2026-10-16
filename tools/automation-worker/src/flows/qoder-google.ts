@@ -69,6 +69,13 @@ function patExchangeUrl(env: NodeJS.ProcessEnv = process.env): string {
 /** What a qoder Personal Access Token looks like, as the dialog prints it. */
 const PAT_PATTERN = /\bpt-[A-Za-z0-9_-]{16,}\b/;
 
+/** The calendar's year-forward control. */
+const NEXT_YEAR = 'button[aria-label*="Next year"], .ant-picker-header-super-next-btn';
+
+/** A day the calendar will let the operator pick. */
+const DAY_CELL =
+  '.ant-picker-cell-in-view:not(.ant-picker-cell-disabled) .ant-picker-cell-inner';
+
 /** How long the token dialog is given to appear after Create. */
 const TOKEN_DIALOG_MS = 30_000;
 
@@ -150,25 +157,33 @@ async function createPersonalToken(context: FlowContext): Promise<string> {
 
     await page.locator(TOKEN_NAME).first().fill(`rutekit-${Date.now().toString(36)}`);
 
-    // Open the calendar and take a day a year out. A token that expires next month
-    // is worse than useless for an account an operator is stockpiling, and the
-    // year button is what makes the expiry meaningful rather than incidental.
+    // The expiry: one year from today, named as a date rather than taken as
+    // "whatever the calendar offers last".
+    //
+    // **The two agree today, and that is the reason to name it.** qoder caps the
+    // calendar at exactly a year out, so the last enabled cell in view *is* that
+    // cap — which means a flow that clicked the last cell would store the right
+    // date for a reason it did not choose. Let the cap move and it stores a date
+    // nobody picked, silently, because nothing in the flow ever said what it
+    // wanted.
+    const target = oneYearFromToday();
+
     await page.locator(TOKEN_EXPIRY).first().click();
-    const nextYear = page.locator('button[aria-label*="Next year"], .ant-picker-header-super-next-btn');
+    const nextYear = page.locator(NEXT_YEAR);
     if ((await nextYear.count()) > 0) {
       await nextYear.first().click().catch(() => undefined);
       await page.waitForTimeout(500);
     }
-    // The last enabled cell in view rather than a particular date: which days a
-    // picker disables is the picker's business, and any future day satisfies the
-    // form. Choosing by position is what survives that.
-    const enabledDays = page.locator(
-      '.ant-picker-cell-in-view:not(.ant-picker-cell-disabled) .ant-picker-cell-inner',
-    );
-    if ((await enabledDays.count()) === 0) {
+
+    const days = page.locator(DAY_CELL);
+    if ((await days.count()) === 0) {
       throw new Error('qoder’s expiry picker offered no selectable day');
     }
-    await enabledDays.last().click();
+    // The same day-of-month, a year on. When that day does not exist a year out —
+    // 29 February is the only one — the last day on offer is the same intent, one
+    // day short, and is what the fallback takes.
+    const wanted = days.filter({ hasText: new RegExp(`^${String(target.getDate())}$`, 'u') });
+    await ((await wanted.count()) > 0 ? wanted.first() : days.last()).click();
     await page.waitForTimeout(700);
 
     if (!(await clickAny(context, [CREATE_TOKEN], STEP_TIMEOUT_MS))) {
@@ -184,6 +199,20 @@ async function createPersonalToken(context: FlowContext): Promise<string> {
 
   step('create a token', 'ok');
   return personalToken;
+}
+
+/**
+ * One year from today, in the calendar's own terms.
+ *
+ * `setFullYear` on a copy of today, rather than arithmetic on a day count: a year
+ * is not a fixed number of days, and the date the picker wants is the same
+ * day-of-month a year on. February 29 rolls forward to 1 March, which is the one
+ * case the caller's fallback exists for.
+ */
+function oneYearFromToday(): Date {
+  const target = new Date();
+  target.setFullYear(target.getFullYear() + 1);
+  return target;
 }
 
 /**
