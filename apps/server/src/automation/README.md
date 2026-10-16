@@ -47,3 +47,13 @@ produced credential into the account pool. The browser itself lives in
   reverses an operator's decision (same rule as ADR-0020).
 - Both probe paths go through the egress guard, so a pool entry naming a private
   address is refused rather than probed.
+- **A bulk import can cost the accounts, and some providers notice.** Driving one
+  provider's sign-in many times from one address in one run is the pattern a provider
+  flags as automated, and it is the operator's accounts that pay for it. This was
+  measured rather than reasoned about: a ten-account `kiro` batch through a headless
+  browser on one host produced accounts that AWS then locked — `403
+  TEMPORARILY_SUSPENDED`, *"we detected unusual user activity"* — so the import
+  succeeded and the accounts could not be used. Where a provider offers a sign-in that
+  does not look like automation (a device flow, or an account the operator made
+  themselves), that is the one to prefer for anything beyond a couple of items, and the
+  console's job history is worth reading before a batch is repeated.
