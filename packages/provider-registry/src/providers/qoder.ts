@@ -180,5 +180,16 @@ export const qoder: ProviderManifestInput = {
     { class: 'transient', statuses: [500, 502, 503, 504] },
   ],
 
-  automation: { login: 'browser', startUrl: 'https://qoder.com/', captcha: true },
+  // Qoder's **Google** entry point, not its email-and-password form.
+  //
+  // Both were driven against a live account. The form works — email, then password
+  // — and then it hands over an Alibaba slider that only a person or a paid solver
+  // can pass; the Google button beside it reaches the same account with no
+  // challenge. `oauth_callback` is qoder's own parameter and points at the account
+  // page the sign-in returns to (see `flows/qoder-google.ts`).
+  automation: {
+    login: 'browser',
+    startUrl: 'https://qoder.com/sso/login/google?oauth_callback=https://qoder.com/account/profile',
+    captcha: true,
+  },
 };

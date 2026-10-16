@@ -27,6 +27,18 @@ describe('what counts as a challenge', () => {
     }
   });
 
+  it('catches the phrasing qoder uses, which the older marker missed', () => {
+    // Found by driving qoder's sign-in rather than by reasoning: the page says
+    // "we need to be sure you are human", which contains `you are human` and
+    // *not* `are you human`. The list had only the latter, so the detector
+    // reported no challenge on the one page that was one — and the item would
+    // have timed out waiting for a page that was never coming.
+    expect(
+      detectChallenge('Before continuing, we need to be sure you are human. Click to verify.')
+        .detected,
+    ).toBe(true);
+  });
+
   it('catches the CJK markers, which is why they are in the list', () => {
     // The curated catalogue includes Chinese providers, and their challenge pages
     // are in Chinese. A detector that only knew English would report "no

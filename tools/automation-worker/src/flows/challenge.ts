@@ -57,6 +57,11 @@ const MARKERS: readonly string[] = [
   'enter the 6-digit code',
   'security check',
   'are you human',
+  // The phrasing qoder uses, and the reason it is a separate entry from the one
+  // above: "we need to be sure you are human" contains `you are human` and not
+  // `are you human`, so the older marker matched everything except the page that
+  // needed it. Found by driving qoder's sign-in rather than by reasoning.
+  'you are human',
   // Simplified Chinese
   '验证码',
   '两步验证',

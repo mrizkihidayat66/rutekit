@@ -2,6 +2,8 @@ import type { WorkerJob } from '@rutekit/contracts';
 
 import { deviceCode } from './device-code.ts';
 import { genericLogin } from './generic-login.ts';
+import { kiroGoogle } from './kiro-google.ts';
+import { qoderGoogle } from './qoder-google.ts';
 import type { ProviderFlow } from './types.ts';
 
 /**
@@ -24,19 +26,29 @@ import type { ProviderFlow } from './types.ts';
  *   2. the device flow, when the manifest declares a device sign-in;
  *   3. nothing — and a failure that names the provider.
  *
- * The four browser entries are all `generic-login` today, which is worth being
- * plain about: none of these providers' pages has been driven, so each is served
- * by the heuristic rather than by a flow written against its markup. A provider
- * whose form the heuristic cannot find fails with a step name saying which part
- * was missing, and that failure is the honest signal that it needs a flow of its
- * own.
+ * **Two of the four entries are now flows written against real pages, and the
+ * other two are still the heuristic.** kiro and qoder were driven against their
+ * live sign-ins, and neither is a single-page form: qoder asks for the email and
+ * then the password, and kiro has no form of its own at all — its sign-in is
+ * Google's. Both were served by `generic-login` until then, and both failed the
+ * way the heuristic is designed to fail, naming the part it could not find.
+ *
+ * The `codebuddy` pair stay on `generic-login` because nobody has driven their
+ * pages. That is not a gap to paper over: a provider whose form the heuristic
+ * cannot find fails with a step name saying which part was missing, and that
+ * failure is the honest signal that it needs a flow of its own — which is exactly
+ * how kiro's and qoder's came to be written.
  */
 
-/** Providers whose sign-in is a browser form this heuristic can drive. */
+/** Providers whose sign-in this registry can drive. */
 const REGISTRY: Readonly<Record<string, ProviderFlow>> = {
+  // No form of its own: the credential is an OAuth code taken through Google,
+  // exchanged for the token pair kiro's own client uses (see `kiro-google.ts`).
+  kiro: kiroGoogle,
+  // A Google sign-in, then a Personal Access Token minted on the integrations
+  // page and spent on the token a client uses (see `qoder-google.ts`).
+  qoder: qoderGoogle,
   // A console sign-in: an email and a password, then a dashboard with an API key.
-  kiro: genericLogin,
-  qoder: genericLogin,
   'codebuddy-intl': genericLogin,
   'codebuddy-cn': genericLogin,
 };

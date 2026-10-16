@@ -1,4 +1,4 @@
-import type { Browser, Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 
 import { noCaptchaSolver, type CaptchaSolver } from '../captcha.ts';
 import {
@@ -55,6 +55,18 @@ export interface PlaywrightDriverOptions {
   readonly navigationTimeoutMs?: number;
   /** How often a preview frame is taken while the flow runs (FR-5.2). */
   readonly previewIntervalMs?: number;
+  /**
+   * Installed on each item's context before the flow runs.
+   *
+   * A hook rather than a fixed option because what a caller wants to do to a
+   * context is open-ended — permissions, an extra header, a locale — and because
+   * a flow whose sign-in leaves the provider's own site (kiro's and qoder's both
+   * go through Google) is otherwise untestable: the flow's own logic turns on
+   * which host it is on, and a fixture server can only be one host. Serving the
+   * third-party host from here is what lets that logic run against real hostnames
+   * without a real network.
+   */
+  readonly configureContext?: (context: BrowserContext) => Promise<void>;
 }
 
 const DEFAULT_NAVIGATION_TIMEOUT_MS = 30_000;
@@ -77,6 +89,7 @@ export function createPlaywrightDriver(options: PlaywrightDriverOptions): Browse
 
       const launched = await ensureBrowser(context);
       const browserContext = await launched.newContext({});
+      await options.configureContext?.(browserContext);
 
       const page = await browserContext.newPage();
       page.setDefaultNavigationTimeout(

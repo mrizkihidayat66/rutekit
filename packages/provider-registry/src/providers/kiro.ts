@@ -260,5 +260,17 @@ export const kiro: ProviderManifestInput = {
     { class: 'transient', statuses: [500, 502, 503, 504] },
   ],
 
-  automation: { login: 'browser', startUrl: 'https://kiro.dev/', captcha: true },
+  // Kiro's **authorization** endpoint, not its sign-in page.
+  //
+  // `kiro.dev/` is a landing page with no form; `app.kiro.dev/signin` is four
+  // buttons and no input, and signing in there yields no credential at all — both
+  // were tried against a live account. What kiro issues is an OAuth code, and it
+  // issues one to this endpoint, which is why the automation starts here: the flow
+  // appends its own PKCE challenge and reads the code out of the `kiro://` redirect
+  // the browser cannot follow (see `flows/kiro-google.ts`).
+  automation: {
+    login: 'browser',
+    startUrl: 'https://prod.us-east-1.auth.desktop.kiro.dev/login',
+    captcha: true,
+  },
 };
