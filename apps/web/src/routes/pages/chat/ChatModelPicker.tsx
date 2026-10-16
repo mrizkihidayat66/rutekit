@@ -48,13 +48,34 @@ export function ChatModelPicker({ config, onConfigChange }: ChatModelPickerProps
   const providerItems = (providers.data?.pages ?? []).flatMap((page) => page.items);
   const modelItems = (models.data?.pages ?? []).flatMap((page) => page.items);
 
+  /**
+   * Only providers this instance can actually reach a turn through.
+   *
+   * **A provider with no account cannot serve a chat turn**, and offering its
+   * models is offering a choice that fails the moment it is used: the turn
+   * resolves the model, finds no credential to spend, and answers with an error
+   * the operator cannot act on from here. `status` is the server's own verdict —
+   * `needs_auth` is exactly "no account stored" — so this reads that rather than
+   * re-deriving it from a count.
+   *
+   * The chosen value is kept out of the filter's way: `ChatOptionList` renders the
+   * current selection from the config, so a provider whose account was removed
+   * while the page was open still shows as what is selected rather than silently
+   * becoming "Any provider".
+   */
+  const reachable = new Set(
+    providerItems.filter((provider) => provider.status !== 'needs_auth').map((provider) => provider.id),
+  );
+  const usableProviders = providerItems.filter((provider) => reachable.has(provider.id));
+  const usableModels = modelItems.filter((model) => reachable.has(model.providerId));
+
   const providerOptions: readonly ChatOption[] = [
     { value: '', label: ANY_PROVIDER },
-    ...providerItems.map((provider) => ({ value: provider.id, label: provider.name })),
+    ...usableProviders.map((provider) => ({ value: provider.id, label: provider.name })),
   ];
   const modelOptions: readonly ChatOption[] = [
     { value: '', label: DEFAULT_MODEL },
-    ...modelItems.map((model) => ({
+    ...usableModels.map((model) => ({
       value: model.id,
       label: model.displayName,
       detail: model.providerId,
