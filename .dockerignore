@@ -16,8 +16,13 @@ coverage
 .vitest
 
 # Runtime data, and whatever an operator's instance has accumulated.
-data
-**/data
+# Anchored to the root on purpose. A bare `data` or `**/data` matches at every
+# depth and silently excluded `apps/web/src/data/` — nine source files of the
+# console's data layer — from the build context, so the image built an API whose
+# frontend could not compile. Same trap as the `.gitignore` rule that hid the
+# same directory from a clean clone; the fix is the same, and the anchor is the
+# only thing that keeps it from coming back.
+/data
 *.sqlite
 *.sqlite-*
 *.log
