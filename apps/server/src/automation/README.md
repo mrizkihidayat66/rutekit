@@ -57,3 +57,11 @@ produced credential into the account pool. The browser itself lives in
   does not look like automation (a device flow, or an account the operator made
   themselves), that is the one to prefer for anything beyond a couple of items, and the
   console's job history is worth reading before a batch is repeated.
+- **An imported account arrives `pending`, and takes its first turn only after a probe
+  proves it.** That is deliberate — nothing has used the credential yet — but it means a
+  batch that finishes is not yet a batch that works: the accounts enter the rotation when
+  the warmup check-in first reaches them, which is within one `RUTEKIT_WARMUP_INTERVAL_MS`
+  (fifteen minutes by default). An operator who wants them now can run a check-in from the
+  Accounts page, or press Enable, which is the same move made by hand. Before `probePath`
+  existed this never happened for a curated provider, and the accounts were unusable
+  indefinitely rather than briefly — see `pool/README.md`.

@@ -54,7 +54,15 @@ export const qoder: ProviderManifestInput = {
     tools: true,
   },
 
-  discovery: { strategy: 'static', requiresCredential: false },
+  // Curated models, so there is nothing to list — but an account still has to be
+  // provable, or it never leaves `pending` and never takes a turn. The quota
+  // endpoint is the cheapest authenticated GET qoder offers: it answers 200 with
+  // the account's own usage, and 401 with a token that is no longer good.
+  discovery: {
+    strategy: 'static',
+    requiresCredential: false,
+    probePath: '/api/v2/quota/usage',
+  },
 
   models: [
     {

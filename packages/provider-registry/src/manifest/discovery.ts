@@ -25,6 +25,26 @@ export const discoverySchema = z.object({
   path: z.string().min(1).nullable().default(null),
   requiresCredential: z.boolean().default(true),
   passthrough: z.boolean().default(false),
+  /**
+   * Where a health probe asks, when the listing endpoint is not it.
+   *
+   * **`static` discovery means there is no listing, and the probe used to stop
+   * there.** A provider whose models are curated has nothing to list, so the
+   * probe had no path, returned null, and the account was never checked — which
+   * meant a newly imported account stayed `pending` forever and never entered the
+   * rotation. Twelve providers are in that position, and two of them are the ones
+   * with browser automation.
+   *
+   * So a provider that cannot be listed can still be *asked something*, and this
+   * is where it says what. The path is joined to the base URL exactly as a
+   * listing path is, and the answer is read the same way: a 2xx proves the
+   * credential, a 401 or 403 says it is dead, and anything else is the provider's
+   * own trouble rather than the account's.
+   *
+   * Null for a provider that genuinely has nothing to ask — a local runner, which
+   * has no remote endpoint at all.
+   */
+  probePath: z.string().min(1).nullable().default(null),
 });
 
 export type Discovery = z.infer<typeof discoverySchema>;

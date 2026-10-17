@@ -56,6 +56,19 @@ export function listingPath(discovery: Discovery): string | null {
   return discovery.path ?? DEFAULT_LISTING_PATH[discovery.strategy];
 }
 
+/**
+ * The path a health probe asks, which is not always the listing path.
+ *
+ * A provider that lists its models can be probed by listing them, so that is
+ * tried first. One that cannot — `static`, whose models are curated — still has
+ * to answer *something* if its accounts are ever going to leave `pending`, and
+ * `probePath` is where it says what. Null when there is genuinely nothing to ask,
+ * which is a local runner with no remote endpoint.
+ */
+export function probePath(discovery: Discovery): string | null {
+  return listingPath(discovery) ?? discovery.probePath;
+}
+
 function toProviderModel(
   manifest: ProviderManifest,
   model: ManifestModel,

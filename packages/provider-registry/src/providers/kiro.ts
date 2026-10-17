@@ -52,7 +52,16 @@ export const kiro: ProviderManifestInput = {
     tools: true,
   },
 
-  discovery: { strategy: 'static', requiresCredential: false },
+  // Curated models, so there is nothing to list. kiro's usage endpoint is the
+  // probe: it takes the access token as a bearer and answers 200 with the
+  // account's own limits. A suspended account answers 403, which is the truth
+  // about that account rather than a fault of the endpoint — and it is why the
+  // probe is worth having, since a bulk import can produce exactly those.
+  discovery: {
+    strategy: 'static',
+    requiresCredential: false,
+    probePath: '/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST',
+  },
 
   models: [
     {

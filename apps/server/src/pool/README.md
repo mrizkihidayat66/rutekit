@@ -48,3 +48,18 @@ that proves a credential lives and refreshes its quota.
 - **`sweep()` only moves `rate_limited` and `exhausted`**, and only when their clock has a
   value. An `exhausted` account with no `quotaResetAt` is waiting on the provider's window,
   which only a check-in can observe.
+- **A new account is `pending`, and `pending` is not routable.** `pending` is the honest
+  state for a credential nothing has used yet, and `pending → active` is an automatic move —
+  but the only thing that makes it is a successful probe. So **an account nothing probes
+  never takes a turn**: it exists, it was paid for, and routing skips it for ever.
+- **A provider whose models are curated still needs a probe.** Discovery `static` means
+  there is no listing to fetch, and the probe used to stop there — `listingPath` returned
+  null, `probeRequest` returned null, and the sweep passed over the account without a word.
+  Twelve providers were in that state, including the two with browser automation, so every
+  account they imported stayed `pending` and was unusable. `discovery.probePath` is what a
+  manifest names to fix that: the cheapest authenticated GET the provider answers, which for
+  qoder is its quota endpoint and for kiro is `getUsageLimits`. A provider with neither a
+  listing nor a probe path is asked at its base URL, which is right for a local runner.
+- **Promotion is not credulity.** A probe that answers 2xx promotes `pending` to `active`; a
+  401 or 403 still bans it. The two paths are the same outcome writer, which is why the fix
+  above did not need to touch the state machine.

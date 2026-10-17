@@ -459,3 +459,70 @@ describe('the interval', () => {
     warmup.stop();
   });
 });
+
+/**
+ * A provider whose models are curated, not listed.
+ *
+ * **This block exists because twelve providers had no probe at all.** Their
+ * discovery is `static`, so `listingPath` returned null, `probeRequest` returned
+ * null, and the sweep skipped them without a word. An account imported by
+ * automation therefore stayed `pending` for ever — and `pending` is not routable,
+ * so it existed, had cost a browser sign-in, and could never take a turn.
+ *
+ * The fix is a `probePath` a manifest can name, which is what these tests hold to.
+ */
+describe('a provider that has no listing', () => {
+  it('probes the path the manifest names instead of skipping the account', async () => {
+    const id = seed('qoder', 'pending', 'qoder-token');
+    const fetch = stubFetch(() => ok());
+    const warmup = makeWarmup(fetch);
+
+    await warmup.checkIn(['qoder']);
+
+    // The probe reached the provider, which is the thing that never happened.
+    expect(fetch.calls).toHaveLength(1);
+    expect(fetch.calls[0]).toBe('https://api3.qoder.sh/api/v2/quota/usage');
+    // And the account is now usable: a 200 proves the credential, which is what
+    // `pending` was waiting for.
+    expect(accounts.findById(id)?.state).toBe('active');
+  });
+
+  it('promotes an imported account on its first successful probe', async () => {
+    // The end-to-end consequence, stated as its own assertion: a fresh import is
+    // `pending`, one probe makes it `active`, and only then may routing select it.
+    const id = seed('kiro', 'pending', 'kiro-token');
+    expect(accounts.findById(id)?.state).toBe('pending');
+
+    const warmup = makeWarmup(stubFetch(() => ok()));
+    await warmup.checkIn(['kiro']);
+
+    expect(accounts.findById(id)?.state).toBe('active');
+  });
+
+  it('still parks a credential the provider rejects', async () => {
+    // Promotion is not credulity: a 401 is the provider saying the credential is
+    // dead, and that has to move the account out of the rotation.
+    const id = seed('qoder', 'pending', 'dead-token');
+    const warmup = makeWarmup(stubFetch(() => new Response(null, { status: 401 })));
+
+    await warmup.checkIn(['qoder']);
+
+    expect(accounts.findById(id)?.state).toBe('banned');
+  });
+
+  it('probes a local runner at its own base URL', async () => {
+    // A provider with no listing and no named probe path is not skipped: its base
+    // URL is still something to ask, and for a local runner that is the whole
+    // check. What the old code did here was return null and move on, which for a
+    // curated provider meant its accounts were never looked at at all.
+    const id = seed('comfyui-local', 'pending', 'whatever');
+    const fetch = stubFetch(() => ok());
+    const warmup = makeWarmup(fetch);
+
+    await warmup.checkIn(['comfyui-local']);
+
+    expect(fetch.calls).toHaveLength(1);
+    expect(fetch.calls[0]).toBe('http://127.0.0.1:8188');
+    expect(accounts.findById(id)?.state).toBe('active');
+  });
+});

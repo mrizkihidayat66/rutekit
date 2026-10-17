@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
 import type { ProviderManifest, ProviderRegistry } from '@registry';
-import { applyAuth, endpointUrl, listingPath, withQuery } from '@registry';
+import { applyAuth, endpointUrl, probePath, withQuery } from '@registry';
 
 import type { ProviderAccountsRepository } from '@server/persistence/provider-accounts.ts';
 import { readCredential } from '@server/providers/credential.ts';
@@ -96,12 +96,22 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     return mine === generation;
   }
 
-  /** The request to send, or null when this manifest and credential cannot reach anything. */
+  /**
+   * The request to send, or null when this manifest and credential cannot reach
+   * anything.
+   *
+   * `probePath` rather than `listingPath`, and the difference is not cosmetic: a
+   * provider whose models are curated has no listing, so the old call returned
+   * null for it and its accounts were never checked at all. That left every
+   * imported account `pending` forever — and `pending` is not routable — so the
+   * account existed, was paid for, and could not take a turn. Twelve providers
+   * were in that position.
+   */
   function probeRequest(
     manifest: ProviderManifest,
     credential: string,
   ): { url: string; headers: Readonly<Record<string, string>> } | null {
-    const target = endpointUrl(manifest, listingPath(manifest.discovery), {});
+    const target = endpointUrl(manifest, probePath(manifest.discovery), {});
     // A templated base URL needs account fields rutekit has no column for yet;
     // the same gap the dispatcher reports, and probing it would only report it
     // again once per interval.
