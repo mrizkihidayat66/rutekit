@@ -15,9 +15,10 @@ import type {
 import type { IdFactory } from '@shared';
 
 import { nodeCrypto } from './codec-crypto.ts';
+import { refreshCredential, refreshPolicyOf } from './credential-refresh.ts';
 import { AppError } from '@server/errors.ts';
 import { degrade, type ControlKind } from '@server/plan/capability.ts';
-import type { Pool } from '@server/pool/pool.ts';
+import type { AccountLease, Pool } from '@server/pool/pool.ts';
 import type { ServerConfig } from '@server/runtime/config.ts';
 import type { TokenSaverSettings } from '@server/runtime/token-saver.ts';
 import { applyPhase, type FilterRuleLike } from '@server/tools/filters.ts';
@@ -116,6 +117,15 @@ export interface ModelCallDeps {
   /** Unix seconds, for the codec's clock. */
   readonly now: () => number;
   readonly ids: IdFactory;
+  /**
+   * Store a credential the provider renewed.
+   *
+   * A provider that rotates its refresh token retires the old one on every
+   * renewal, so a renewed credential that is not written back is a credential the
+   * *next* renewal cannot spend. The write is a dependency rather than something
+   * this module does itself because it holds no repository and no key.
+   */
+  readonly persistCredential: (accountId: string, credential: string) => void;
 }
 
 /**
@@ -212,7 +222,11 @@ export async function callModel(
      * lease meant encoding without the account, which is why that value had
      * nowhere to come from.
      */
-    const account = lease.credential.fields;
+    // A token the provider will renew is renewed before it is spent. Doing this
+    // lazily — on a 401 — would mean every expired account costs one refused turn
+    // before it works, and for a provider whose 403 also means "suspended" the two
+    // are not distinguishable from the outside.
+    const account = await renewedCredential(deps, call.manifest, lease, hooks);
     const context: CodecContext = {
       now: deps.now,
       ids: deps.ids,
@@ -405,4 +419,59 @@ export function mergeHeaders(
     }
   }
   return Object.fromEntries(merged);
+}
+
+/**
+ * The account's fields, with an expired token renewed first.
+ *
+ * **The lease's credential is a snapshot**, taken when the account was selected.
+ * A provider that rotates its access token needs the *new* one both in the body
+ * the codec builds and in the `Authorization` header, so the renewal has to
+ * happen before either — and the rotated refresh token has to be written back, or
+ * the next renewal spends a token the provider has already retired.
+ *
+ * A renewal that fails is not fatal to the turn. The stored token may still be
+ * good — a provider can refuse a refresh for reasons that say nothing about the
+ * access token — so the attempt proceeds and the provider's own answer decides.
+ * What is fatal is a refresh that *succeeds* and cannot be stored: the next turn
+ * would then spend the old token again, which is the failure this exists to fix.
+ */
+async function renewedCredential(
+  deps: ModelCallDeps,
+  manifest: ProviderManifest,
+  lease: AccountLease,
+  hooks: ModelCallHooks,
+): Promise<Readonly<Record<string, string>>> {
+  const policy = refreshPolicyOf(manifest);
+  if (policy === null) return lease.credential.fields;
+
+  const outcome = await refreshCredential(
+    policy,
+    lease.credential.fields,
+    deps.fetch,
+    deps.config.upstreamTimeoutMs,
+  );
+  if (!outcome.ok) {
+    if (outcome.retryable) {
+      deps.logger.warn({ accountId: lease.accountId, reason: outcome.reason }, 'credential refresh failed');
+    } else {
+      deps.logger.warn(
+        { accountId: lease.accountId, reason: outcome.reason },
+        'credential refresh refused; the account needs a new sign-in',
+      );
+    }
+    return lease.credential.fields;
+  }
+
+  const merged = { ...lease.credential.fields, ...outcome.fields };
+  try {
+    deps.persistCredential(lease.accountId, JSON.stringify(merged));
+  } catch (cause) {
+    deps.logger.error(
+      { accountId: lease.accountId, err: cause },
+      'a renewed credential could not be stored; the next turn will renew again',
+    );
+  }
+  hooks.onLease?.(lease.accountId);
+  return merged;
 }

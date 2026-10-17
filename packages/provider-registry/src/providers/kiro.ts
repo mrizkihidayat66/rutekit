@@ -286,6 +286,16 @@ export const kiro: ProviderManifestInput = {
   // issues one to this endpoint, which is why the automation starts here: the flow
   // appends its own PKCE challenge and reads the code out of the `kiro://` redirect
   // the browser cannot follow (see `flows/kiro-google.ts`).
+  // kiro hands back a refresh token beside the access token, and expects it to be
+  // spent when the access token ages out. Without this an imported account was
+  // dead within hours and the only way back was another browser sign-in.
+  credentialRefresh: {
+    url: 'https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken',
+    bodyTemplate: '{"refreshToken":{refreshToken}}',
+    accessTokenField: 'accessToken',
+    refreshTokenField: 'refreshToken',
+  },
+
   automation: {
     login: 'browser',
     startUrl: 'https://prod.us-east-1.auth.desktop.kiro.dev/login',

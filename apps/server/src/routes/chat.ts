@@ -53,6 +53,11 @@ export function chatRoutes(deps: AppDeps): Hono<AppEnv> {
       logger: deps.logger,
       now: () => Math.floor(Date.now() / 1000),
       ids: createIdFactory((bytes) => crypto.getRandomValues(new Uint8Array(bytes))),
+      persistCredential: (accountId, credential) => {
+        const secrets = deps.secrets;
+        if (secrets === null) return;
+        deps.accounts.setCredential(accountId, secrets.encrypt(credential), new Date().toISOString());
+      },
     },
   });
 

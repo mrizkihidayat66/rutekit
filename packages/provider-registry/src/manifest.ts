@@ -121,6 +121,32 @@ export const providerManifestSchema = z.object({
 
   // --- how an account is created ---
   automation: automationSchema.nullable().default(null),
+
+  /**
+   * How an expired access token is renewed, or null when the provider has no
+   * such thing.
+   *
+   * A provider that issues a refresh token expects the client to spend it, and
+   * rutekit read the field and never used it — so an account stopped working when
+   * its access token aged out and the only way back was another sign-in. That is
+   * a re-run of browser automation for a credential the provider was willing to
+   * renew, which is the most expensive way to fix a clock.
+   *
+   * The body is a template with `{refreshToken}` substituted, because every
+   * provider spells that request differently and none of them needs code.
+   */
+  credentialRefresh: z
+    .object({
+      url: z.url(),
+      /** JSON body, with `{refreshToken}` replaced by the stored token. */
+      bodyTemplate: z.string().min(2),
+      /** The field in the answer that carries the new access token. */
+      accessTokenField: z.string().min(1),
+      /** The field carrying a rotated refresh token, when the provider rotates. */
+      refreshTokenField: z.string().min(1).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
 });
 
 /** What the registry hands out: every default applied, every field present. */

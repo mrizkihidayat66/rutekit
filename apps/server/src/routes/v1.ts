@@ -39,6 +39,13 @@ export function v1Routes(deps: AppDeps): Hono<AppEnv> {
     filters: () => activeFilters(deps),
     config: deps.config,
     logger: deps.logger,
+    // A renewed credential is re-encrypted and written back, so a rotated refresh
+    // token is not spent twice.
+    persistCredential: (accountId, credential) => {
+      const secrets = deps.secrets;
+      if (secrets === null) return;
+      deps.accounts.setCredential(accountId, secrets.encrypt(credential), new Date().toISOString());
+    },
   });
 
   router.get('/models', (c) => c.json(deps.modelListing.list()));

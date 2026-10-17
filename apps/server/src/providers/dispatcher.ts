@@ -111,6 +111,8 @@ export interface DispatcherDeps {
   /** Injectable so a test can assert the ids rutekit synthesises. */
   readonly ids?: IdFactory;
   readonly random?: RandomSource;
+  /** Store a credential a provider renewed; see `ModelCallDeps`. */
+  readonly persistCredential: (accountId: string, credential: string) => void;
 }
 
 export function createDispatcher(deps: DispatcherDeps): Dispatcher {
@@ -129,6 +131,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     logger: deps.logger,
     now,
     ids,
+    persistCredential: deps.persistCredential,
   };
 
   /** One attempt's context: the codec and the direction its answer comes back in. */

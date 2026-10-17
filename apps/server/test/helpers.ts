@@ -356,6 +356,7 @@ export function makeServer(options: MakeServerOptions = {}): TestServer {
     call: {
       pool,
       tokenSaver: createTokenSaverSettings({ meta }),
+      persistCredential: () => undefined,
       // No content filters, matching `main.ts`: a filter that rewrote a probe
       // would change what the endpoint was asked, which is the one thing a
       // measurement must not do.

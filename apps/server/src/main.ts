@@ -383,6 +383,11 @@ export function main(): void {
       fetch: responseFetch,
       config,
       logger,
+      // A probe is a turn, so it renews a token the same way one does.
+      persistCredential: (accountId, credential) => {
+        if (secrets === null) return;
+        accounts.setCredential(accountId, secrets.encrypt(credential), new Date().toISOString());
+      },
       now: () => Math.floor(Date.now() / 1000),
       ids: createIdFactory((bytes) => crypto.getRandomValues(new Uint8Array(bytes))),
     },
