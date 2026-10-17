@@ -61,6 +61,10 @@ export const kiro: ProviderManifestInput = {
     strategy: 'static',
     requiresCredential: false,
     probePath: '/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST',
+    // The usage service, not the runtime host the base URL names. Aimed at the
+    // runtime it answers 404, which proves nothing; here a dead credential is a
+    // 403 and a live one is a 200 with the account's limits.
+    probeOrigin: 'https://q.us-east-1.amazonaws.com',
   },
 
   models: [

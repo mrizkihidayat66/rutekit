@@ -241,8 +241,13 @@ export async function callModel(
     }
 
     const auth = applyAuth(call.manifest, lease.credential.value);
-    const url =
+    const joined =
       Object.keys(auth.query).length === 0 ? target.url : withQuery(target.url, auth.query);
+    // A codec that named its own origin is talking about a host the manifest does
+    // not describe — qoder's chat lives on api2 while its base URL is api3 — so
+    // the origin is swapped and the path it signed is kept exactly as signed.
+    const url =
+      encoded.origin === undefined ? joined : `${encoded.origin}${new URL(joined).pathname}${new URL(joined).search}`;
 
     let usage: Usage | null = null;
 

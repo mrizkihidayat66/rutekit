@@ -79,6 +79,17 @@ export interface EncodedRequest {
    */
   readonly path: string;
   /**
+   * The scheme and host this request goes to, when it is not the manifest's.
+   *
+   * `path` is relative to the provider's base URL, which is the common case and
+   * the one the manifest is written for. A provider whose chat lives on a
+   * different host than the rest of its API cannot be expressed that way, and
+   * qoder is one: its base URL is `api3`, its chat endpoint is `api2`, and a
+   * request to the wrong one is answered `500` with no explanation. The codec is
+   * the only thing that knows where its own wire lives, so it can say so here.
+   */
+  readonly origin?: string;
+  /**
    * The request body.
    *
    * A string as well as an object, because a wire may want its body encoded

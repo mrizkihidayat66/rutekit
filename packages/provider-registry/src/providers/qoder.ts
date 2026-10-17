@@ -62,6 +62,10 @@ export const qoder: ProviderManifestInput = {
     strategy: 'static',
     requiresCredential: false,
     probePath: '/api/v2/quota/usage',
+    // Not on the base URL's host. Aimed there it answers 404, which proves
+    // nothing about the credential — and a 404 read as success would put every
+    // imported account into the rotation unverified.
+    probeOrigin: 'https://openapi.qoder.sh',
   },
 
   models: [

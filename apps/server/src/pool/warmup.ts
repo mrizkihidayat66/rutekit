@@ -117,8 +117,14 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     // again once per interval.
     if (target.missing.length > 0) return null;
     const auth = applyAuth(manifest, credential);
-    const url =
+    const joined =
       Object.keys(auth.query).length === 0 ? target.url : withQuery(target.url, auth.query);
+    // A probe can live on a different host than the rest of a provider's API, and
+    // the manifest says so when it does. Aiming at the wrong one is a 404, which
+    // proves nothing about the credential.
+    const origin = manifest.discovery.probeOrigin;
+    const url =
+      origin === null ? joined : `${origin}${new URL(joined).pathname}${new URL(joined).search}`;
     return { url, headers: auth.headers };
   }
 
@@ -176,6 +182,22 @@ export function createWarmup(deps: WarmupDeps): Warmup {
       if (quota !== null) {
         deps.accounts.setQuota(accountId, quota, at.toISOString());
       }
+    }
+
+    // A 404 is the probe's own endpoint not being there, and it says nothing about
+    // the credential. Reading it as a healthy answer would promote an account
+    // nothing has verified — which is exactly what happened when a probe path was
+    // aimed at the wrong host and every imported account went `active`.
+    // A 404 is the probe's own endpoint not being there, and it says nothing about
+    // the credential. Reading it as a healthy answer would promote an account
+    // nothing has verified — which is exactly what happened when a probe path was
+    // aimed at the wrong host and every imported account went `active`.
+    if (response.status === 404) {
+      deps.logger.warn(
+        { accountId, url: request.url },
+        'the probe endpoint does not exist; this account was not verified',
+      );
+      return;
     }
 
     writer.apply(accountId, outcomeFromStatus(response.status, retryAfterOf(response.headers), at));

@@ -296,8 +296,13 @@ export function encodeQoderRequest(request: CanonicalRequest, context: CodecCont
 
   const bodyEncoded = encodePayload(JSON.stringify(body));
 
+  const chatUrl = new URL(CHAT_URL);
   return {
-    path: new URL(CHAT_URL).pathname + new URL(CHAT_URL).search,
+    path: chatUrl.pathname + chatUrl.search,
+    // The manifest's base URL is api3; this endpoint is on api2. Naming the origin
+    // is the only way to express that, and getting it wrong is a `500` with no
+    // explanation rather than a 404.
+    origin: chatUrl.origin,
     body: bodyEncoded,
     headers: signedHeaders(context, bodyEncoded, identity, sessionKey),
   };

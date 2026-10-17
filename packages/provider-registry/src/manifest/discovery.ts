@@ -45,6 +45,15 @@ export const discoverySchema = z.object({
    * has no remote endpoint at all.
    */
   probePath: z.string().min(1).nullable().default(null),
+  /**
+   * The host the probe lives on, when it is not the manifest's base URL.
+   *
+   * The same problem `EncodedRequest.origin` solves for a chat request: qoder's
+   * base URL is `api3` and its quota endpoint is on `openapi`. A probe aimed at
+   * the wrong host answers `404` — which proves nothing about the credential, and
+   * which the sweep must not read as success.
+   */
+  probeOrigin: z.string().min(1).nullable().default(null),
 });
 
 export type Discovery = z.infer<typeof discoverySchema>;

@@ -481,7 +481,7 @@ describe('a provider that has no listing', () => {
 
     // The probe reached the provider, which is the thing that never happened.
     expect(fetch.calls).toHaveLength(1);
-    expect(fetch.calls[0]).toBe('https://api3.qoder.sh/api/v2/quota/usage');
+    expect(fetch.calls[0]).toBe('https://openapi.qoder.sh/api/v2/quota/usage');
     // And the account is now usable: a 200 proves the credential, which is what
     // `pending` was waiting for.
     expect(accounts.findById(id)?.state).toBe('active');
@@ -497,6 +497,18 @@ describe('a provider that has no listing', () => {
     await warmup.checkIn(['kiro']);
 
     expect(accounts.findById(id)?.state).toBe('active');
+  });
+
+  it('does not promote on a probe endpoint that does not exist', async () => {
+    // A 404 is the probe aimed at the wrong path, not the credential being good.
+    // Reading it as success is how a wrong host promoted every imported account
+    // into the rotation without anything having been verified.
+    const id = seed('qoder', 'pending', 'token');
+    const warmup = makeWarmup(stubFetch(() => new Response(null, { status: 404 })));
+
+    await warmup.checkIn(['qoder']);
+
+    expect(accounts.findById(id)?.state).toBe('pending');
   });
 
   it('still parks a credential the provider rejects', async () => {
