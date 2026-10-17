@@ -538,3 +538,132 @@ describe('a provider that has no listing', () => {
     expect(accounts.findById(id)?.state).toBe('active');
   });
 });
+
+describe('a refusal that a renewal can undo', () => {
+  /**
+   * kiro answers 403 both for an expired access token and for a suspended
+   * account, so the status alone cannot tell them apart — and reading it as final
+   * banned every kiro account a few hours after import. `banned` is a state only
+   * an operator can leave, so a clock turned a renewable credential into a re-run
+   * of browser automation.
+   *
+   * The refresh is spent only after a refusal, never before every probe: a
+   * check-in runs on a timer, and rotating a token that still works would
+   * multiply the provider's refresh traffic by the sweep interval for nothing.
+   */
+
+  const REFRESH = 'https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken';
+
+  function seedKiro(state = 'active', refreshToken = 'refresh-1'): string {
+    return seed(
+      'kiro',
+      state,
+      JSON.stringify({ accessToken: 'expired-token', refreshToken, profileArn: 'arn:aws:x' }),
+    );
+  }
+
+  /** A fetch that answers by URL, so the probe and the refresh can differ. */
+  function routedFetch(
+    answers: { probe: (call: number) => Response; refresh: () => Response },
+  ): ResponseFetcher & { readonly calls: string[] } {
+    let probes = 0;
+    return stubFetch((url) => {
+      if (url === REFRESH) return answers.refresh();
+      probes += 1;
+      return answers.probe(probes);
+    });
+  }
+
+  function json(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  it('renews and asks again, so an expired token does not ban the account', async () => {
+    const id = seedKiro();
+    const fetch = routedFetch({
+      probe: (call) => (call === 1 ? new Response(null, { status: 403 }) : ok()),
+      refresh: () => json({ accessToken: 'fresh-token', refreshToken: 'refresh-2' }),
+    });
+
+    await makeWarmup(fetch).checkIn(['kiro']);
+
+    expect(fetch.calls.filter((url) => url === REFRESH)).toHaveLength(1);
+    expect(fetch.calls).toHaveLength(3);
+    expect(accounts.findById(id)?.state).toBe('active');
+  });
+
+  it('stores the renewed token, because the next turn spends it', async () => {
+    const id = seedKiro();
+    const fetch = routedFetch({
+      probe: (call) => (call === 1 ? new Response(null, { status: 401 }) : ok()),
+      refresh: () => json({ accessToken: 'fresh-token', refreshToken: 'refresh-2' }),
+    });
+
+    await makeWarmup(fetch).checkIn(['kiro']);
+
+    const stored = JSON.parse(box.decrypt(accounts.findById(id)?.credentialEnvelope ?? ''));
+    expect(stored.accessToken).toBe('fresh-token');
+    // The rotated token is the one that still works; keeping the old one would
+    // make the next renewal spend a token the provider has already retired.
+    expect(stored.refreshToken).toBe('refresh-2');
+    // Fields the provider did not send back are still true and must survive.
+    expect(stored.profileArn).toBe('arn:aws:x');
+  });
+
+  it('bans the account when the renewal is refused too', async () => {
+    // A suspended account and an expired token look identical from the outside;
+    // once the refresh token is refused as well, the credential really is dead
+    // and the account must not sit as `active` waiting for a turn to fail.
+    const id = seedKiro();
+    const fetch = routedFetch({
+      probe: () => new Response(null, { status: 403 }),
+      refresh: () => new Response(null, { status: 400 }),
+    });
+
+    await makeWarmup(fetch).checkIn(['kiro']);
+
+    expect(accounts.findById(id)?.state).toBe('banned');
+    expect(accounts.findById(id)?.stateReason).toBe('The provider rejected this credential.');
+  });
+
+  it('bans the account when the renewal succeeds and the retry is still refused', async () => {
+    const id = seedKiro();
+    const fetch = routedFetch({
+      probe: () => new Response(null, { status: 403 }),
+      refresh: () => json({ accessToken: 'fresh-token' }),
+    });
+
+    await makeWarmup(fetch).checkIn(['kiro']);
+
+    expect(fetch.calls.filter((url) => url === REFRESH)).toHaveLength(1);
+    expect(accounts.findById(id)?.state).toBe('banned');
+  });
+
+  it('never renews a credential that was not refused', async () => {
+    // A token that works is left alone: a sweep runs every few minutes for every
+    // account, and rotating on each one would be pure refresh traffic.
+    seedKiro();
+    const fetch = routedFetch({
+      probe: () => ok(),
+      refresh: () => json({ accessToken: 'unused' }),
+    });
+
+    await makeWarmup(fetch).checkIn(['kiro']);
+
+    expect(fetch.calls).not.toContain(REFRESH);
+    expect(fetch.calls).toHaveLength(1);
+  });
+
+  it('leaves a provider with no refresh policy alone', async () => {
+    const id = seed('openai', 'active', 'sk-dead');
+    const fetch = stubFetch(() => new Response(null, { status: 403 }));
+
+    await makeWarmup(fetch).checkIn(['openai']);
+
+    expect(fetch.calls).toHaveLength(1);
+    expect(accounts.findById(id)?.state).toBe('banned');
+  });
+});

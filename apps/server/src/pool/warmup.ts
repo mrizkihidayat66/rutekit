@@ -4,6 +4,7 @@ import { applyAuth, endpointUrl, probePath, withQuery } from '@registry';
 
 import type { ProviderAccountsRepository } from '@server/persistence/provider-accounts.ts';
 import { readCredential } from '@server/providers/credential.ts';
+import { refreshCredential, refreshPolicyOf } from '@server/providers/credential-refresh.ts';
 import { retryAfterOf } from '@server/providers/dispatch-errors.ts';
 import type { ResponseFetcher } from '@server/providers/outbound.ts';
 import type { ServerConfig } from '@server/runtime/config.ts';
@@ -128,6 +129,67 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     return { url, headers: auth.headers };
   }
 
+  /**
+   * Renew the credential the provider just refused, and hand back the token to
+   * retry with — or null when there is nothing to retry.
+   *
+   * **A probe that reads a 401 as a dead credential bans an account a refresh
+   * could have saved.** kiro answers 403 both for an expired access token and for
+   * a suspended account, and the two are indistinguishable from the outside; the
+   * only way to tell them apart is to spend the refresh token and see. Without
+   * that, every kiro account was banned hours after import — and `banned` is a
+   * state only an operator can leave, so a clock turned a renewable credential
+   * into a re-run of browser automation.
+   *
+   * Renewing *after* a refusal rather than before every probe is deliberate: a
+   * check-in runs on a timer for every account, and rotating a token that still
+   * works would multiply the provider's refresh traffic by the sweep interval for
+   * nothing. A turn refreshes up front because a user is waiting on it; a probe
+   * can afford one refused round trip.
+   */
+  async function renewRefused(
+    manifest: ProviderManifest,
+    accountId: string,
+    fields: Readonly<Record<string, string>>,
+    mine: number,
+  ): Promise<string | null> {
+    const policy = refreshPolicyOf(manifest);
+    if (policy === null) return null;
+
+    const outcome = await refreshCredential(
+      policy,
+      fields,
+      deps.fetch,
+      deps.config.warmupTimeoutMs,
+    );
+    if (!outcome.ok) {
+      deps.logger.warn(
+        { accountId, reason: outcome.reason },
+        'the probe was refused and the credential could not be renewed',
+      );
+      return null;
+    }
+
+    // A stop that landed during the refresh means the database is closed or
+    // closing, so the renewed token is dropped rather than written.
+    if (!live(mine)) return null;
+
+    const merged = { ...fields, ...outcome.fields };
+    try {
+      // Written before the retry: if the retry is interrupted, the account still
+      // holds a token that works instead of one the provider has already spent.
+      deps.accounts.setCredential(
+        accountId,
+        deps.secrets === null ? '' : deps.secrets.encrypt(JSON.stringify(merged)),
+        now().toISOString(),
+      );
+    } catch (cause) {
+      deps.logger.error({ accountId, err: cause }, 'a renewed credential could not be stored');
+      return null;
+    }
+    return merged['accessToken'] ?? null;
+  }
+
   async function probeAccount(
     manifest: ProviderManifest,
     accountId: string,
@@ -144,28 +206,47 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     const credential = readCredential(deps.secrets, row);
     if (credential === null) return;
 
-    const request = probeRequest(manifest, credential.value);
-    if (request === null) return;
-
     const at = now();
 
-    let response: Response;
-    try {
-      response = await deps.fetch(request.url, {
-        method: 'GET',
-        headers: request.headers,
-        signal: AbortSignal.timeout(deps.config.warmupTimeoutMs),
-      });
-    } catch (cause) {
-      // Stopping is not an outcome, and it must not be recorded as one: the
-      // probe never reached the provider, so writing `transient` here would
-      // advance a failure streak for an account nothing is wrong with.
-      if (!live(mine)) return;
-      // Unreachable is transient: a host that is down says nothing about the
-      // credential, so it advances the streak rather than parking anything.
-      writer.apply(accountId, OUTCOME_TRANSIENT);
-      deps.logger.debug({ accountId, err: cause }, 'warmup probe could not reach the provider');
-      return;
+    const send = async (token: string): Promise<Response | null> => {
+      const request = probeRequest(manifest, token);
+      if (request === null) return null;
+      try {
+        return await deps.fetch(request.url, {
+          method: 'GET',
+          headers: request.headers,
+          signal: AbortSignal.timeout(deps.config.warmupTimeoutMs),
+        });
+      } catch (cause) {
+        // Stopping is not an outcome, and it must not be recorded as one: the
+        // probe never reached the provider, so writing `transient` here would
+        // advance a failure streak for an account nothing is wrong with.
+        if (!live(mine)) return null;
+        // Unreachable is transient: a host that is down says nothing about the
+        // credential, so it advances the streak rather than parking anything.
+        writer.apply(accountId, OUTCOME_TRANSIENT);
+        deps.logger.debug({ accountId, err: cause }, 'warmup probe could not reach the provider');
+        return null;
+      }
+    };
+
+    let response = await send(credential.value);
+    if (response === null) return;
+
+    // A refusal is the one answer that cannot be trusted on its own, because an
+    // expired token and a suspended account look the same. Spend the refresh
+    // token and ask again; the second answer is the one that means something.
+    // When the renewal itself fails the first answer stands, so a genuinely
+    // suspended account still reaches `banned` instead of resting as `active`
+    // with a token nothing will renew.
+    if (response.status === 401 || response.status === 403) {
+      void response.body?.cancel().catch(() => undefined);
+      const renewed = await renewRefused(manifest, accountId, credential.fields, mine);
+      if (renewed !== null) {
+        const retried = await send(renewed);
+        if (retried === null) return;
+        response = retried;
+      }
     }
 
     // The body is not read: the status and the headers are the whole answer, and
@@ -188,13 +269,9 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     // the credential. Reading it as a healthy answer would promote an account
     // nothing has verified — which is exactly what happened when a probe path was
     // aimed at the wrong host and every imported account went `active`.
-    // A 404 is the probe's own endpoint not being there, and it says nothing about
-    // the credential. Reading it as a healthy answer would promote an account
-    // nothing has verified — which is exactly what happened when a probe path was
-    // aimed at the wrong host and every imported account went `active`.
     if (response.status === 404) {
       deps.logger.warn(
-        { accountId, url: request.url },
+        { accountId, providerId: manifest.id },
         'the probe endpoint does not exist; this account was not verified',
       );
       return;
