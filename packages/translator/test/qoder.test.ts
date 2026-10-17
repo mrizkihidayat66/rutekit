@@ -159,6 +159,16 @@ describe('the request', () => {
     expect(encoded.path).toContain('/algo/api/v2/service/pro/sse/agent_chat_generation');
   });
 
+  it('asks for a stream even when the client did not', () => {
+    // qoder's chat endpoint answers only SSE: the same request with
+    // `accept: application/json` comes back `500 Internal Server Error` with no
+    // explanation at all, which is what a non-streaming turn used to send. So the
+    // codec overrules the transport's choice, and `decodeResponse` is what turns
+    // the stream into a whole answer for a client that asked for one.
+    const encoded = encodeQoderRequest({ ...request, stream: false }, context());
+    expect((encoded.headers ?? {})['accept']).toBe('text/event-stream');
+  });
+
   it('refuses an account that cannot sign, and says which field is missing', () => {
     // A credential stored before the flow recorded the identity. A 401 from the
     // provider would explain nothing; this names the fix.

@@ -158,6 +158,21 @@ function signedHeaders(
   const machineId = account['machineId'] ?? context.ids.opaque();
 
   return {
+    /**
+     * This endpoint speaks SSE and nothing else.
+     *
+     * The transport picks `accept` from whether the client asked for a stream,
+     * and a non-streaming turn would therefore ask for `application/json` — to
+     * which qoder answers `500 Internal Server Error` with no explanation. It is
+     * not a refusal of the account or the body: the same request with
+     * `text/event-stream` answers 200 and streams the whole answer.
+     *
+     * So the codec sets it, and `decodeResponse` is what turns the stream into a
+     * whole answer for a client that did not ask for one. `encoded.headers` is
+     * merged last precisely so a wire can overrule a default the transport chose
+     * on its behalf.
+     */
+    accept: 'text/event-stream',
     'cosy-data-policy': 'agree',
     'cosy-machinetype': '5',
     'cosy-clienttype': '5',
