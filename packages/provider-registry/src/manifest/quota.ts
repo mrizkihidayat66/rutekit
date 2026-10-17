@@ -26,16 +26,13 @@ export const noQuotaPolicySchema = z.object({
  *
  * A path rather than a predicate: the mechanism stays provider-neutral and a new
  * provider needs no code, which is the same reason `bodyTemplate` exists on the
- * refresh side. `exhaustedAt` is separate from `remaining` because a provider may
- * state the verdict without stating the arithmetic, and qoder does exactly that.
+ * refresh side.
  */
 export const quotaBodySchema = z.object({
   /** Dot path from the answer's root to the remaining amount. */
   remaining: z.string().min(1).nullable().default(null),
   /** Dot path to the total allowance. */
   limit: z.string().min(1).nullable().default(null),
-  /** Dot path to a boolean the provider sets when the account cannot serve. */
-  exhausted: z.string().min(1).nullable().default(null),
   /** Dot path to a reset instant, in milliseconds since the epoch. */
   resetAt: z.string().min(1).nullable().default(null),
 });

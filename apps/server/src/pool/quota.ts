@@ -75,13 +75,6 @@ export function parseResetAt(raw: string | null, now: Date): string | null {
  * learned. A provider that stopped sending headers is a provider we know less
  * about, not one whose window disappeared.
  */
-/** What a provider's JSON answer says about one account's allowance. */
-export interface QuotaBodyRead {
-  readonly quota: AccountQuotaWrite;
-  /** True when the provider itself said this account cannot serve. */
-  readonly exhausted: boolean;
-}
-
 /** The value at a dot path, or undefined when the path does not resolve. */
 function atPath(value: unknown, path: string | null): unknown {
   if (path === null) return value;
@@ -112,11 +105,10 @@ export function readQuotaBody(
   declared: {
     readonly remaining: string | null;
     readonly limit: string | null;
-    readonly exhausted: string | null;
     readonly resetAt: string | null;
   },
   now: Date,
-): QuotaBodyRead | null {
+): AccountQuotaWrite | null {
   const countAt = (path: string | null): number | null => {
     if (path === null) return null;
     const value = atPath(body, path);
@@ -126,33 +118,24 @@ export function readQuotaBody(
   const limit = countAt(declared.limit);
   const remaining = countAt(declared.remaining);
 
-  // The provider's own verdict, which is not the same as the arithmetic: qoder
-  // sets this flag on a plan whose allowance is zero, where "remaining" alone
-  // would look like an account that simply has not started spending.
-  const flag = declared.exhausted === null ? undefined : atPath(body, declared.exhausted);
-  const exhausted = flag === true;
-
   const rawReset = declared.resetAt === null ? undefined : atPath(body, declared.resetAt);
   const resetAt =
     typeof rawReset === 'number' && Number.isFinite(rawReset) && rawReset > 0
       ? new Date(rawReset).toISOString()
       : null;
 
-  if (limit === null && remaining === null && !exhausted && resetAt === null) return null;
+  if (limit === null && remaining === null && resetAt === null) return null;
 
   const windowSeconds =
     resetAt === null ? null : Math.max(0, Math.round((Date.parse(resetAt) - now.getTime()) / 1000));
 
   return {
-    quota: {
-      windowSeconds,
-      limit,
-      remaining,
-      resetAt,
-      creditBalance: null,
-      creditCurrency: null,
-    },
-    exhausted,
+    windowSeconds,
+    limit,
+    remaining,
+    resetAt,
+    creditBalance: null,
+    creditCurrency: null,
   };
 }
 

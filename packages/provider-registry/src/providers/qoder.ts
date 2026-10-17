@@ -189,9 +189,12 @@ export const qoder: ProviderManifestInput = {
   // account — none was ever `exhausted`, and a free plan with zero credit stayed
   // in rotation answering an empty stream to every turn.
   //
-  // `isQuotaExceeded` is read as well as the arithmetic, because it is the
-  // provider's own verdict: on a plan whose allowance is zero, `remaining` alone
-  // looks like an account that has not started spending.
+  // `isQuotaExceeded` is deliberately **not** mapped, even though the answer
+  // carries it. On a live free-plan account the flag is true while `lite` answers
+  // every turn — so it describes the balance, not whether this account can serve,
+  // and parking on it would take working accounts out of rotation. What it does
+  // mean is that the paid models will answer an empty stream; that is a fact
+  // about the model, and the console is where an operator can see the balance.
   quota: {
     kind: 'credit',
     source: 'endpoint',
@@ -199,7 +202,6 @@ export const qoder: ProviderManifestInput = {
     body: {
       remaining: 'userQuota.remaining',
       limit: 'userQuota.total',
-      exhausted: 'isQuotaExceeded',
       resetAt: 'expiresAt',
     },
   },

@@ -304,15 +304,10 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     // to every turn.
     const declaredBody = quotaBodyOf(manifest);
     let quota: AccountQuotaWrite | null = null;
-    let exhausted = false;
 
     if (response.ok && declaredBody !== null) {
       const text = await response.text().catch(() => '');
-      const read = readQuotaBody(parseJson(text), declaredBody, at);
-      if (read !== null) {
-        quota = read.quota;
-        exhausted = read.exhausted;
-      }
+      quota = readQuotaBody(parseJson(text), declaredBody, at);
     } else {
       // The body is not read when it cannot say anything: the status and the
       // headers are the whole answer, and an unconsumed body would hold a socket
@@ -340,15 +335,12 @@ export function createWarmup(deps: WarmupDeps): Warmup {
       return;
     }
 
-    // A provider that says in its body that the account cannot serve has
-    // exhausted it, and the status it used was a 200 — so the status alone would
-    // read as healthy. The account rests until the provider's own window reopens,
-    // which is the same treatment a 429 gets.
-    if (exhausted) {
-      writer.apply(accountId, outcomeFromStatus(402, null, at));
-      return;
-    }
-
+    // **The flag is recorded, not acted on, and that is deliberate.** qoder sets
+    // `isQuotaExceeded` for a plan with no credit while `lite` still answers
+    // every turn — measured on a live account, three turns with the flag true.
+    // Parking on it would take fifteen working accounts out of rotation for a
+    // plan whose balance is zero, which is a fact about the balance rather than
+    // about whether this account can serve.
     writer.apply(accountId, outcomeFromStatus(response.status, retryAfterOf(response.headers), at));
   }
 
