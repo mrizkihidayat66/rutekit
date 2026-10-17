@@ -14,7 +14,7 @@ import {
   createProviderAccountsRepository,
   type ProviderAccountsRepository,
 } from '@server/persistence/provider-accounts.ts';
-import { createPool, type Pool } from '@server/pool/pool.ts';
+import { createPool, type AccountLease, type Pool } from '@server/pool/pool.ts';
 import { SecretBox } from '@server/security/secret-box.ts';
 
 /**
@@ -95,9 +95,16 @@ function makePool(
   });
 }
 
+/** The lease a call must have produced, or a failure that names the test's own mistake. */
+function take(pool: Pool, providerId = 'openai'): AccountLease {
+  const outcome = pool.acquire(providerId);
+  if (!outcome.ok) throw new Error(`expected a lease, got ${outcome.reason}`);
+  return outcome.lease;
+}
+
 describe('createPool.acquire', () => {
   it('answers null when the provider has no accounts', () => {
-    expect(makePool().acquire('openai')).toBeNull();
+    expect(makePool().acquire('openai').ok).toBe(false);
   });
 
   it('answers null when no account is in a routable state', () => {
@@ -105,13 +112,13 @@ describe('createPool.acquire', () => {
     seed({ state: 'disabled' });
     seed({ state: 'rate_limited' });
 
-    expect(makePool().acquire('openai')).toBeNull();
+    expect(makePool().acquire('openai').ok).toBe(false);
   });
 
   it('hands back a credential for an active account', () => {
     const id = seed({ credential: 'sk-live' });
 
-    const lease = makePool().acquire('openai');
+    const lease = take(makePool());
     expect(lease?.accountId).toBe(id);
     expect(lease?.credential.value).toBe('sk-live');
   });
@@ -120,7 +127,7 @@ describe('createPool.acquire', () => {
     seed();
     const pool = makePool();
 
-    const lease = pool.acquire('openai');
+    const lease = take(pool);
     expect(lease).not.toBeNull();
     expect(pool.inFlight(lease?.accountId ?? '')).toBe(1);
   });
@@ -129,9 +136,9 @@ describe('createPool.acquire', () => {
     seed({ maxInFlight: 1 });
     const pool = makePool();
 
-    expect(pool.acquire('openai')).not.toBeNull();
+    expect(pool.acquire('openai').ok).toBe(true);
     // Nothing left to take: the one account is full and there is no sibling.
-    expect(pool.acquire('openai')).toBeNull();
+    expect(pool.acquire('openai').ok).toBe(false);
   });
 
   it('spreads turns across siblings up to each one’s ceiling', () => {
@@ -139,10 +146,10 @@ describe('createPool.acquire', () => {
     seed({ id: 'b', maxInFlight: 1 });
     const pool = makePool('round_robin');
 
-    const first = pool.acquire('openai');
-    const second = pool.acquire('openai');
+    const first = take(pool);
+    const second = take(pool);
     expect([first?.accountId, second?.accountId]).toEqual(['a', 'b']);
-    expect(pool.acquire('openai')).toBeNull();
+    expect(pool.acquire('openai').ok).toBe(false);
   });
 
   it('skips an account whose credential will not decrypt', () => {
@@ -150,13 +157,13 @@ describe('createPool.acquire', () => {
     // A second box with a different key: the row's envelope is unreadable to it.
     const pool = makePool('round_robin', new SecretBox('cd'.repeat(32)));
 
-    expect(pool.acquire('openai')).toBeNull();
+    expect(pool.acquire('openai').ok).toBe(false);
     expect(pool.inFlight(id)).toBe(0);
   });
 
   it('answers null when no key is configured at all', () => {
     seed();
-    expect(makePool('round_robin', null).acquire('openai')).toBeNull();
+    expect(makePool('round_robin', null).acquire('openai').ok).toBe(false);
   });
 
   it('only ever considers the provider asked for', () => {
@@ -164,7 +171,7 @@ describe('createPool.acquire', () => {
     seed({ id: 'anthropic-1', providerId: 'anthropic' });
     const pool = makePool();
 
-    expect(pool.acquire('anthropic')?.accountId).toBe('anthropic-1');
+    expect(take(pool, 'anthropic').accountId).toBe('anthropic-1');
   });
 
   it('rotates through the siblings across turns', () => {
@@ -172,9 +179,7 @@ describe('createPool.acquire', () => {
     seed({ id: 'b', maxInFlight: 5 });
     const pool = makePool('round_robin');
 
-    const taken = [pool.acquire('openai'), pool.acquire('openai'), pool.acquire('openai')].map(
-      (lease) => lease?.accountId,
-    );
+    const taken = [take(pool), take(pool), take(pool)].map((lease) => lease.accountId);
     expect(taken).toEqual(['a', 'b', 'a']);
   });
 
@@ -183,8 +188,8 @@ describe('createPool.acquire', () => {
     seed({ id: 'b', maxInFlight: 5 });
     const pool = makePool('sequential');
 
-    expect(pool.acquire('openai')?.accountId).toBe('a');
-    expect(pool.acquire('openai')?.accountId).toBe('a');
+    expect(take(pool).accountId).toBe('a');
+    expect(take(pool).accountId).toBe('a');
   });
 });
 
@@ -193,8 +198,8 @@ describe('settling a lease', () => {
     const id = seed();
     const pool = makePool();
 
-    const lease = pool.acquire('openai');
-    lease?.succeed();
+    const lease = take(pool);
+    lease.succeed();
 
     expect(pool.inFlight(id)).toBe(0);
     expect(accounts.findById(id)?.lastUsedAt).toBe(clock.toISOString());
@@ -204,7 +209,7 @@ describe('settling a lease', () => {
     const id = seed();
     const pool = makePool();
 
-    pool.acquire('openai')?.fail(AppError.upstreamError('boom'));
+    take(pool).fail(AppError.upstreamError('boom'));
 
     expect(pool.inFlight(id)).toBe(0);
   });
@@ -213,7 +218,7 @@ describe('settling a lease', () => {
     const id = seed();
     const pool = makePool();
 
-    pool.acquire('openai')?.fail(AppError.rateLimit(45));
+    take(pool).fail(AppError.rateLimit(45));
 
     const row = accounts.findById(id);
     expect(row?.state).toBe('rate_limited');
@@ -224,8 +229,8 @@ describe('settling a lease', () => {
     const id = seed();
     const pool = makePool();
 
-    const lease = pool.acquire('openai');
-    lease?.succeed();
+    const lease = take(pool);
+    lease.succeed();
     // A second settle is a no-op: without this, a stream that ended after its
     // headers would decrement the count a second time and free a slot twice.
     lease?.fail(AppError.upstreamError('late failure'));
@@ -239,8 +244,8 @@ describe('settling a lease', () => {
     seed();
     const pool = makePool();
 
-    pool.acquire('openai')?.succeed();
-    expect(pool.acquire('openai')).not.toBeNull();
+    take(pool).succeed();
+    expect(pool.acquire('openai').ok).toBe(true);
   });
 });
 
@@ -293,5 +298,83 @@ describe('createPool.sweep', () => {
     const id = seed({ state: 'active' });
     makePool().sweep();
     expect(accounts.findById(id)?.state).toBe('active');
+  });
+});
+
+describe('a model that spends an allowance', () => {
+  /**
+   * qoder's free plan has no credits: `lite` is priced at zero and answers, every
+   * other model accepts the request and sends nothing at all. Sending the turn
+   * anyway costs a round trip and reports a hang; refusing the pairing says why
+   * in the same breath.
+   *
+   * The flag is the manifest's, and the balance is the provider's — a `0 / 0`
+   * answer leaves it null, so only an account the provider *said* is spent is
+   * refused.
+   */
+
+  function seedWithBalance(balance: number | null): string {
+    const id = seed({ providerId: 'qoder' });
+    accounts.setQuota(
+      id,
+      {
+        windowSeconds: null,
+        limit: null,
+        remaining: null,
+        resetAt: null,
+        creditBalance: balance,
+        creditCurrency: null,
+      },
+      START.toISOString(),
+    );
+    return id;
+  }
+
+  it('refuses a metered model on an account the provider says is spent', () => {
+    seedWithBalance(0);
+    const pool = makePool();
+
+    const outcome = pool.acquire('qoder', { requiresCredit: true });
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok ? null : outcome.reason).toBe('no-credit');
+  });
+
+  it('still serves a model that costs nothing from the same account', () => {
+    // `lite` is the whole reason a zero balance is not a parked account: the
+    // account can serve, just not the metered models.
+    seedWithBalance(0);
+    const pool = makePool();
+
+    expect(pool.acquire('qoder').ok).toBe(true);
+  });
+
+  it('serves a metered model from an account whose balance is unreported', () => {
+    // `0 / 0` from a provider means it does not meter this plan, not that the
+    // account is empty — so a null balance is not a refusal.
+    seedWithBalance(null);
+    const pool = makePool();
+
+    expect(pool.acquire('qoder', { requiresCredit: true }).ok).toBe(true);
+  });
+
+  it('says busy, not no-credit, when the account is merely cooling', () => {
+    const id = seed({ providerId: 'qoder', state: 'rate_limited', cooldownUntil: '2026-10-13T12:05:00.000Z' });
+    accounts.setQuota(
+      id,
+      {
+        windowSeconds: null,
+        limit: null,
+        remaining: null,
+        resetAt: null,
+        creditBalance: 5,
+        creditCurrency: null,
+      },
+      START.toISOString(),
+    );
+
+    const outcome = makePool().acquire('qoder', { requiresCredit: true });
+
+    expect(outcome.ok ? null : outcome.reason).toBe('busy');
   });
 });

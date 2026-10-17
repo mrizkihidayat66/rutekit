@@ -121,7 +121,13 @@ export async function callProvider(call: ProviderCall, options: CallOptions): Pr
   }
 
   if (!call.stream) {
-    const body = await readBody(upstream, call.manifest, abort, stopClock);
+    const body = await readWholeBody(
+      upstream,
+      call.manifest,
+      abort,
+      stopClock,
+      options.config.streamFirstChunkMs,
+    );
     const rendered = options.render(body);
     return rendered === null
       ? new Response(body, { status: 200, headers: JSON_HEADERS })
@@ -187,6 +193,14 @@ export async function callProvider(call: ProviderCall, options: CallOptions): Pr
  * family, so the bytes travel and each codec owns its own boundary. The error
  * path decodes to text, because a message is what it is looking for.
  */
+/**
+ * A failed answer's body.
+ *
+ * Short and already on its way — the provider answered with a status, so this is
+ * a few hundred bytes of JSON rather than a turn. It is read without the
+ * first-byte clock on purpose: a refusal that arrives slowly is still a refusal,
+ * and the request's own abort bounds the wait.
+ */
 async function readBody(
   upstream: Response,
   manifest: ProviderManifest,
@@ -196,6 +210,75 @@ async function readBody(
   try {
     return new Uint8Array(await upstream.arrayBuffer());
   } catch (cause) {
+    if (abort.signal.aborted) {
+      throw AppError.timeout(`${manifest.name} ran out of time answering.`, {
+        provider: manifest.id,
+      });
+    }
+    throw AppError.upstreamError(`${manifest.name} stopped answering.`, {
+      provider: manifest.id,
+      cause,
+    });
+  } finally {
+    stopClock();
+  }
+}
+
+/**
+ * A whole answer, read with the same first-byte clock a stream gets.
+ *
+ * **`arrayBuffer()` waits for the connection to end, and that is not a deadline.**
+ * qoder commits a 200 for a model its plan does not cover and then sends nothing;
+ * the socket sits until the provider gives up, which took two minutes and arrived
+ * as `ECONNRESET` — reported to the client as "stopped answering", which says
+ * nothing about the model and reads like a network fault.
+ *
+ * So the first byte is read under the same clock the streaming path uses, and a
+ * body that never starts is reported as what it is: accepted, and empty. What
+ * remains after that first chunk is drained without a second deadline, because a
+ * provider that has started talking is answering, and the request's own abort
+ * still bounds the total.
+ */
+async function readWholeBody(
+  upstream: Response,
+  manifest: ProviderManifest,
+  abort: AbortController,
+  stopClock: () => void,
+  firstChunkMs: number,
+): Promise<Uint8Array> {
+  const reader = upstream.body?.getReader() as
+    | ReadableStreamDefaultReader<Uint8Array>
+    | undefined;
+  if (reader === undefined) {
+    stopClock();
+    throw AppError.upstreamError(`${manifest.name} answered without a body.`, {
+      provider: manifest.id,
+    });
+  }
+
+  try {
+    const first = await primeFirstChunk(reader, firstChunkMs, manifest.name);
+    const chunks: Uint8Array[] = [first];
+    let length = first.length;
+    for (;;) {
+      const step = await reader.read();
+      if (step.done) break;
+      chunks.push(step.value);
+      length += step.value.length;
+    }
+
+    const body = new Uint8Array(length);
+    let at = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, at);
+      at += chunk.length;
+    }
+    return body;
+  } catch (cause) {
+    // `primeFirstChunk` already says "empty body" or "did not start answering",
+    // which are the two answers worth keeping; anything else is a transport
+    // failure and is classified here.
+    if (cause instanceof AppError) throw cause;
     if (abort.signal.aborted) {
       throw AppError.timeout(`${manifest.name} ran out of time answering.`, {
         provider: manifest.id,

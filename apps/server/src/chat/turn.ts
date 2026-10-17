@@ -168,6 +168,9 @@ export function createChatTurns(deps: ChatTurnDeps): ChatTurns {
             // provider's own bytes" route: every answer is re-rendered.
             direct: false,
             dropped,
+            // The console asks for a model the operator picked; the pool is what
+            // knows whether an account here can afford it.
+            requiresCredit: target.resolved.model.requiresCredit,
           },
           { stream: () => tap(fold, renderer) },
           requestId,

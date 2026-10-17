@@ -164,6 +164,10 @@ export function createProbeRunner(deps: ProbeRunnerDeps): ProbeRunner {
         // a shape this runner has no way to read.
         direct: false,
         dropped: [],
+        // A probe measures whether a model answers, so it is not refused before
+        // it is sent: the point of probing a metered model on a bare account is
+        // to find out what the provider says.
+        requiresCredit: false,
       },
       { render: (result: CanonicalResult) => result, stream: () => null },
       null,

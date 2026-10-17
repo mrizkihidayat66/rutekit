@@ -33,6 +33,15 @@ export const quotaBodySchema = z.object({
   remaining: z.string().min(1).nullable().default(null),
   /** Dot path to the total allowance. */
   limit: z.string().min(1).nullable().default(null),
+  /**
+   * Dot path to a boolean the provider sets when the allowance is spent.
+   *
+   * A provider may state the verdict without stating the arithmetic — qoder sets
+   * `isQuotaExceeded` while reporting `0 / 0` — and the two are different facts.
+   * The flag is what turns "unreported" into "spent", which is what a metered
+   * model needs in order to be refused before a round trip.
+   */
+  exhausted: z.string().min(1).nullable().default(null),
   /** Dot path to a reset instant, in milliseconds since the epoch. */
   resetAt: z.string().min(1).nullable().default(null),
 });

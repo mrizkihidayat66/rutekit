@@ -134,6 +134,18 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     persistCredential: deps.persistCredential,
   };
 
+  /**
+   * What one candidate produced: an answer, or the reason it could not.
+   *
+   * The reason is carried rather than flattened into `null`, because the walk
+   * needs it when no candidate succeeds — "no account has credit for this model"
+   * and "every account is busy" are different answers, and only one of them is
+   * worth retrying.
+   */
+  type AttemptOutcome =
+    | { readonly ok: true; readonly response: Response }
+    | { readonly ok: false; readonly error: AppError };
+
   /** One attempt's context: the codec and the direction its answer comes back in. */
   function prepare(surface: ClientSurface, step: RankedStep) {
     const codec = codecFor(step.resolved.family);
@@ -149,13 +161,20 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     canonical: CanonicalRequest,
     step: RankedStep,
     state: TurnState,
-  ): Promise<Response | null> {
+  ): Promise<AttemptOutcome> {
     const prepared = prepare(input.surface, step);
     // A wire rutekit cannot translate is a reason to skip this candidate, not to
     // refuse the turn: a combo may legitimately mix a provider rutekit speaks for
     // with one it does not. A single-model plan has nowhere to go, and the caller
     // reports it.
-    if (prepared === null) return null;
+    if (prepared === null) {
+      return {
+        ok: false,
+        error: AppError.unavailable(
+          `${step.resolved.manifest.name} speaks a wire rutekit cannot translate.`,
+        ),
+      };
+    }
 
     try {
       const result = await callModel(
@@ -168,6 +187,7 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
           codec: prepared.codec,
           direct: prepared.direct,
           dropped: step.degraded,
+          requiresCredit: step.resolved.model.requiresCredit,
         },
         {
           render: (decoded) => renderResult(input.surface, decoded),
@@ -237,11 +257,16 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
           ttftMs: null,
         });
       }
-      return withDegradation(result.response, step.degraded);
+      return { ok: true, response: withDegradation(result.response, step.degraded) };
     } catch (error) {
-      // Every account of this provider is busy. Nothing was sent, so for a combo
-      // this is the same decision as an untranslatable wire: try the next entry.
-      if (error instanceof NoAccountError) return null;
+      // No account of this provider can take the turn. Nothing was sent, so for a
+      // combo this is the same decision as an untranslatable wire: try the next
+      // entry. The error travels rather than being flattened, because a refusal
+      // for credit and a refusal for capacity mean different things to a reader —
+      // one is worth retrying and the other is not.
+      if (error instanceof NoAccountError) {
+        return { ok: false, error: AppError.unavailable(error.message) };
+      }
       throw error;
     }
   }
@@ -341,14 +366,13 @@ export function createDispatcher(deps: DispatcherDeps): Dispatcher {
     for (const [index, step] of steps.entries()) {
       const lastStep = index === steps.length - 1;
       try {
-        const response = await attempt(input, canonical, step, state);
-        if (response !== null) return response;
-        // Null is "this candidate cannot take the turn" — a wire rutekit does not
-        // speak, or every account busy. Nothing was sent upstream, so moving on
-        // costs nothing but the walk itself.
-        last = AppError.unavailable(
-          `No ${step.resolved.manifest.name} account can take a turn right now.`,
-        );
+        const outcome = await attempt(input, canonical, step, state);
+        if (outcome.ok) return outcome.response;
+        // "This candidate cannot take the turn" — a wire rutekit does not speak,
+        // every account busy, or no account with credit for this model. Nothing
+        // was sent upstream, so moving on costs nothing but the walk itself, and
+        // the step's own error is what the client sees if no step succeeds.
+        last = outcome.error;
       } catch (error) {
         // The chain may only be walked while the client has been told nothing. A
         // step that threw failed before its headers, which is exactly that; a step

@@ -818,3 +818,53 @@ describe('a credential that does not call its token accessToken', () => {
     expect(accounts.findById(id)?.state).toBe('active');
   });
 });
+
+describe('a provider that says the allowance is spent', () => {
+  /**
+   * qoder sets `isQuotaExceeded` on a free plan while reporting `0 / 0`. The flag
+   * is what turns "unreported" into "spent": without it the balance stays null and
+   * a metered model is offered to an account that cannot pay for it.
+   */
+
+  function seedQoder(): string {
+    return seed('qoder', 'active', JSON.stringify({ securityOauthToken: 't', userId: 'u' }));
+  }
+
+  it('records the flag as a balance of zero', async () => {
+    const id = seedQoder();
+    const warmup = makeWarmup(
+      stubFetch(() =>
+        new Response(
+          JSON.stringify({ userQuota: { total: 0, remaining: 0 }, isQuotaExceeded: true }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    const row = accounts.findById(id);
+    // Zero because the provider said so — and still null for the arithmetic it
+    // did not report, so the console does not show "0 of 0".
+    expect(row?.creditBalance).toBe(0);
+    expect(row?.quotaLimit).toBeNull();
+    // And the account is not parked: `lite` costs nothing and still answers.
+    expect(row?.state).toBe('active');
+  });
+
+  it('leaves the balance alone when the provider did not flag it', async () => {
+    const id = seedQoder();
+    const warmup = makeWarmup(
+      stubFetch(() =>
+        new Response(
+          JSON.stringify({ userQuota: { total: 0, remaining: 0 }, isQuotaExceeded: false }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    expect(accounts.findById(id)?.creditBalance).toBeNull();
+  });
+});

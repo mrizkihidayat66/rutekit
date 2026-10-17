@@ -89,6 +89,14 @@ export interface ModelCall {
   readonly direct: boolean;
   /** Controls this model cannot express, dropped before anything is sent. */
   readonly dropped: readonly ControlKind[];
+  /**
+   * Whether serving this model spends the account's paid allowance.
+   *
+   * Carried to the pool, which is the only thing that can see the balance. A
+   * metered model on an account with none is a pairing that cannot work, and
+   * sending it anyway is what produces an accepted request with no answer.
+   */
+  readonly requiresCredit: boolean;
 }
 
 /** How a caller turns a canonical answer into its own surface's bytes. */
@@ -181,11 +189,26 @@ export interface ModelCallResult {
   readonly usage: Usage | null;
 }
 
-/** No account this provider has can take a turn right now. Busy, not broken. */
+/**
+ * No account this provider has can take a turn right now.
+ *
+ * Two reasons, and the difference matters to whoever reads it: `busy` is a
+ * provider whose accounts are all cooling, and retrying later works. `no-credit`
+ * is a model that spends an allowance none of these accounts has — waiting
+ * changes nothing, and the message says which model and why so the reader can
+ * pick one the plan covers instead of retrying.
+ */
 export class NoAccountError extends Error {
-  constructor(providerName: string) {
-    super(`No ${providerName} account can take a turn right now.`);
+  readonly reason: 'busy' | 'no-credit';
+
+  constructor(providerName: string, reason: 'busy' | 'no-credit' = 'busy', modelId = '') {
+    super(
+      reason === 'no-credit'
+        ? `No ${providerName} account has credit for ${modelId}.`
+        : `No ${providerName} account can take a turn right now.`,
+    );
     this.name = 'NoAccountError';
+    this.reason = reason;
   }
 }
 
@@ -204,8 +227,11 @@ export async function callModel(
   // answers. See `CompressionReport`.
   hooks.onCompression?.(outbound.compression);
 
-  const lease = deps.pool.acquire(call.manifest.id);
-  if (lease === null) throw new NoAccountError(call.manifest.name);
+  const acquired = deps.pool.acquire(call.manifest.id, { requiresCredit: call.requiresCredit });
+  if (!acquired.ok) {
+    throw new NoAccountError(call.manifest.name, acquired.reason, call.modelId);
+  }
+  const lease = acquired.lease;
   hooks.onLease?.(lease.accountId);
 
   // Everything from here holds the lease, so a throw anywhere below has to settle

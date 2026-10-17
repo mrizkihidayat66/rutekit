@@ -53,6 +53,20 @@ export const manifestModelSchema = z.object({
   upstreamId: z.string().min(1).nullable().default(null),
   /** Wire family when this model speaks a different one; null inherits the provider's. */
   wireFamily: wireFamilySchema.nullable().default(null),
+  /**
+   * Whether serving this model spends the account's paid allowance.
+   *
+   * **A provider can carry models its own free plan cannot reach.** qoder's
+   * `lite` is priced at zero and answers on a free account; every other model is
+   * metered, and on an account with no credits they accept the request and send
+   * nothing at all — a 200 with an empty body, which is indistinguishable from a
+   * hang unless something knows why.
+   *
+   * Marking a model here is the manifest's claim, and it is what lets the pool
+   * refuse a pairing it knows cannot work instead of spending a round trip to
+   * discover it.
+   */
+  requiresCredit: z.boolean().default(false),
 });
 
 /**

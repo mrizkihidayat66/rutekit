@@ -42,13 +42,33 @@ export interface AccountLease {
   fail(error: unknown): void;
 }
 
+/**
+ * Why a provider had nothing to give.
+ *
+ * `busy` is the ordinary case — every account is at its in-flight ceiling or
+ * cooling, and waiting helps. `no-credit` is not: the caller asked for a model
+ * that spends a paid allowance, and no account here has one, so waiting never
+ * helps and saying "busy" would invite a retry that cannot succeed.
+ */
+export type AcquireRefusal = 'busy' | 'no-credit';
+
+export type AcquireOutcome =
+  | { readonly ok: true; readonly lease: AccountLease }
+  | { readonly ok: false; readonly reason: AcquireRefusal };
+
+export interface AcquireOptions {
+  /** True when the model being served spends the account's paid allowance. */
+  readonly requiresCredit?: boolean;
+}
+
 export interface Pool {
   /**
-   * A credential to send the turn as, or null when this provider has none that
-   * can take one right now. Null is not an error: a provider whose accounts are
-   * all cooling is a provider that is busy, and the caller decides what to say.
+   * A credential to send the turn as, or the reason there is none.
+   *
+   * A refusal is not an error: a provider whose accounts are all cooling is a
+   * provider that is busy, and the caller decides what to say about it.
    */
-  acquire(providerId: string): AccountLease | null;
+  acquire(providerId: string, options?: AcquireOptions): AcquireOutcome;
   /** The live count for one account, for the console. */
   inFlight(accountId: string): number;
   /** Bring back accounts whose clock has run out (FR-3.3). */
@@ -87,12 +107,30 @@ export function createPool(deps: PoolDeps): Pool {
     deps.accounts.setInFlight(accountId, Math.max(0, next));
   }
 
-  /** The rows that could take a turn right now, with their credentials already read. */
-  function usable(providerId: string): Usable[] {
+  /**
+   * The rows that could take a turn right now, with their credentials already read.
+   *
+   * `blockedForCredit` is what makes a refusal say the right thing: an account
+   * with a zero balance can still serve a model that costs nothing (qoder's
+   * `lite`), so it is skipped rather than parked — but if it is the only reason
+   * nothing was found, waiting will not help and the caller must be told that.
+   */
+  function usable(
+    providerId: string,
+    requiresCredit: boolean,
+  ): { found: Usable[]; blockedForCredit: boolean } {
     const found: Usable[] = [];
+    let blockedForCredit = false;
     for (const row of deps.accounts.listByProvider(providerId)) {
       const state = parseAccountState(row.state);
       if (state === null || !isRoutable(state)) continue;
+      // A metered model spends an allowance this account does not have. Sending
+      // the turn anyway is what qoder answers with an empty 200 — accepted, and
+      // nothing else — which reads as a hang and tells the caller nothing.
+      if (requiresCredit && row.creditBalance === 0) {
+        blockedForCredit = true;
+        continue;
+      }
       // Read through the manifest, so a provider that names its token something
       // other than `accessToken` — qoder's is `securityOauthToken` — yields the
       // token rather than the whole envelope.
@@ -106,12 +144,12 @@ export function createPool(deps: PoolDeps): Pool {
       if (credential === null) continue;
       found.push({ id: row.id, maxInFlight: row.maxInFlight, credential });
     }
-    return found;
+    return { found, blockedForCredit };
   }
 
   return {
-    acquire(providerId: string): AccountLease | null {
-      const found = usable(providerId);
+    acquire(providerId: string, options: AcquireOptions = {}): AcquireOutcome {
+      const { found, blockedForCredit } = usable(providerId, options.requiresCredit === true);
       const candidates: Candidate[] = found.map((entry) => ({
         id: entry.id,
         inFlight: countOf(entry.id),
@@ -119,9 +157,14 @@ export function createPool(deps: PoolDeps): Pool {
       }));
 
       const choice = selectAccount(candidates, deps.strategy(), cursors.get(providerId) ?? 0);
-      if (choice === null) return null;
+      // Credit is named before busy because it is the answer that does not change
+      // with time: an account that cannot afford the model now will not afford it
+      // after a wait, and a client told "busy" retries forever.
+      if (choice === null) {
+        return { ok: false, reason: found.length === 0 && blockedForCredit ? 'no-credit' : 'busy' };
+      }
       const picked = found.find((entry) => entry.id === choice.accountId);
-      if (picked === undefined) return null;
+      if (picked === undefined) return { ok: false, reason: 'busy' };
 
       cursors.set(providerId, choice.cursor);
       setLive(picked.id, countOf(picked.id) + 1);
@@ -134,7 +177,7 @@ export function createPool(deps: PoolDeps): Pool {
         return true;
       };
 
-      return {
+      const lease: AccountLease = {
         accountId: picked.id,
         credential: picked.credential,
         succeed(): void {
@@ -146,6 +189,7 @@ export function createPool(deps: PoolDeps): Pool {
           writer.apply(picked.id, outcomeFromError(error, now()));
         },
       };
+      return { ok: true, lease };
     },
 
     inFlight(accountId: string): number {

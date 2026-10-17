@@ -105,6 +105,7 @@ export function readQuotaBody(
   declared: {
     readonly remaining: string | null;
     readonly limit: string | null;
+    readonly exhausted: string | null;
     readonly resetAt: string | null;
   },
   now: Date,
@@ -137,7 +138,24 @@ export function readQuotaBody(
   const horizon = now.getTime() + 10 * 365 * 24 * 3600 * 1000;
   const saneReset = resetAt !== null && Date.parse(resetAt) <= horizon ? resetAt : null;
 
-  if (limit === null && remaining === null && saneReset === null) return null;
+  /**
+   * The provider's own verdict, recorded as a balance of zero.
+   *
+   * **This is the one thing that distinguishes "spent" from "unreported".** qoder
+   * reports `0 / 0` on a free plan and leaves `remaining` alone; it is
+   * `isQuotaExceeded` that says the allowance is gone. Writing zero only when the
+   * provider says so keeps a `0 / 0` answer null, which is what stops the console
+   * showing an empty balance for an account that has simply not been metered.
+   *
+   * What a zero balance does *not* mean is that the account cannot serve: `lite`
+   * costs nothing and answers anyway. It means a **metered** model cannot.
+   */
+  const flagged = declared.exhausted === null ? undefined : atPath(body, declared.exhausted);
+  const creditBalance = flagged === true ? 0 : null;
+
+  if (limit === null && remaining === null && saneReset === null && creditBalance === null) {
+    return null;
+  }
 
   const windowSeconds =
     saneReset === null
@@ -149,7 +167,7 @@ export function readQuotaBody(
     limit,
     remaining,
     resetAt: saneReset,
-    creditBalance: null,
+    creditBalance,
     creditCurrency: null,
   };
 }

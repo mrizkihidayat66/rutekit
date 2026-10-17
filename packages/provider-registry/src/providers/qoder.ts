@@ -79,6 +79,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qoder Ultimate',
       contextWindow: 200_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true, reasoning: true },
     },
     {
@@ -86,6 +87,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qoder Auto',
       contextWindow: 200_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -93,6 +95,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qoder Performance',
       contextWindow: 200_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -100,6 +103,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qoder Efficient',
       contextWindow: 128_000,
       maxOutputTokens: 32_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -114,6 +118,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qwen3.8-Max',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true, reasoning: true },
     },
     {
@@ -121,6 +126,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qwen3.7-Max',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true, reasoning: true },
     },
     {
@@ -128,6 +134,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qwen3.7-Plus',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -135,6 +142,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Qwen3.8-Flash',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -142,6 +150,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Kimi-K3',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true, reasoning: true },
     },
     {
@@ -149,6 +158,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'Kimi-K2.7-Code',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -156,6 +166,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'GLM-5.3',
       contextWindow: 200_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true, reasoning: true },
     },
     {
@@ -163,6 +174,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'GLM-5.3-Flash',
       contextWindow: 200_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -170,6 +182,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'DeepSeek-V4-Pro',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true, reasoning: true },
     },
     {
@@ -177,6 +190,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'DeepSeek-V4-Flash',
       contextWindow: 256_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true },
     },
     {
@@ -184,6 +198,7 @@ export const qoder: ProviderManifestInput = {
       displayName: 'MiniMax-M3',
       contextWindow: 200_000,
       maxOutputTokens: 64_000,
+      requiresCredit: true,
       capabilities: { tools: true, reasoning: true },
     },
   ],
@@ -194,12 +209,12 @@ export const qoder: ProviderManifestInput = {
   // account — none was ever `exhausted`, and a free plan with zero credit stayed
   // in rotation answering an empty stream to every turn.
   //
-  // `isQuotaExceeded` is deliberately **not** mapped, even though the answer
-  // carries it. On a live free-plan account the flag is true while `lite` answers
-  // every turn — so it describes the balance, not whether this account can serve,
-  // and parking on it would take working accounts out of rotation. What it does
-  // mean is that the paid models will answer an empty stream; that is a fact
-  // about the model, and the console is where an operator can see the balance.
+  // `isQuotaExceeded` is recorded as a balance of zero — and it is **not** a
+  // reason to park the account. On a live free-plan account the flag is true while
+  // `lite` answers every turn, so it describes the allowance rather than whether
+  // this account can serve. What it does decide is that the metered models cannot:
+  // they accept the request and send nothing, which is why every model above
+  // except `lite` declares `requiresCredit`.
   quota: {
     kind: 'credit',
     source: 'endpoint',
@@ -207,6 +222,7 @@ export const qoder: ProviderManifestInput = {
     body: {
       remaining: 'userQuota.remaining',
       limit: 'userQuota.total',
+      exhausted: 'isQuotaExceeded',
       resetAt: 'expiresAt',
     },
   },

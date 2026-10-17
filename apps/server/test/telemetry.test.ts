@@ -31,6 +31,7 @@ function model(overrides: Partial<ManifestModel> = {}): ManifestModel {
     deprecated: false,
     upstreamId: null,
     wireFamily: null,
+    requiresCredit: false,
     ...overrides,
   };
 }
