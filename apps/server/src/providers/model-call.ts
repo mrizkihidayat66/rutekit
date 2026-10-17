@@ -255,16 +255,18 @@ export async function callModel(
       {
         manifest: call.manifest,
         url,
-        headers: {
-          'content-type': 'application/json',
-          accept: request.stream ? 'text/event-stream' : 'application/json',
-          ...call.manifest.endpoint.headers,
-          ...auth.headers,
+        headers: mergeHeaders(
+          {
+            'content-type': 'application/json',
+            accept: request.stream ? 'text/event-stream' : 'application/json',
+          },
+          call.manifest.endpoint.headers,
+          auth.headers,
           // Last, so a codec that signs a request can set the headers the
           // signature lives in. The manifest's and the credential's are defaults
           // a codec overrides rather than competitors.
-          ...encoded.headers,
-        },
+          encoded.headers,
+        ),
         // A string is already encoded — a wire that signs its body sends what the
         // signature was computed over, not a re-serialisation of it, and those
         // two are different strings.
@@ -372,4 +374,35 @@ function applyPhase2(request: CanonicalRequest, deps: ModelCallDeps): CanonicalR
     );
   }
   return outcome.request;
+}
+
+/**
+ * The request headers, with a later source replacing an earlier one whatever its
+ * case.
+ *
+ * **HTTP header names are case-insensitive, and a plain object is not.** Spreading
+ * four sources into one object treats `Authorization` and `authorization` as two
+ * keys, so a request ends up carrying both — and a provider that sees two
+ * `Authorization` headers does not pick one. qoder hangs until the turn times out,
+ * which reads as a provider outage rather than as a header this server sent twice.
+ *
+ * That is exactly how it failed: `applyAuth` writes `Authorization` from the
+ * manifest's auth mode, the codec writes `authorization` with its signature, and
+ * the two travelled together. Nothing in either source is wrong on its own.
+ */
+export function mergeHeaders(
+  ...sources: readonly (Readonly<Record<string, string>> | undefined)[]
+): Record<string, string> {
+  const merged = new Map<string, string>();
+  for (const source of sources) {
+    if (source === undefined) continue;
+    for (const [name, value] of Object.entries(source)) {
+      const key = name.toLowerCase();
+      // The later source's spelling wins along with its value, so a codec's own
+      // casing survives while the duplicate it replaces does not.
+      if (merged.has(key)) merged.delete(key);
+      merged.set(key, value);
+    }
+  }
+  return Object.fromEntries(merged);
 }
