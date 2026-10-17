@@ -729,3 +729,56 @@ describe('a provider that states its limits in the body', () => {
     expect(accounts.findById(id)?.quotaRemaining).toBe(90);
   });
 });
+
+describe('a body that reports no balance', () => {
+  /**
+   * The shapes a provider uses to say "I am not telling you", both taken from a
+   * live qoder answer: `0 / 0` for a plan it does not meter, and an expiry in year
+   * 9999 for one that never resets. Writing either down would show an operator a
+   * number that is not true.
+   */
+
+  function seedQoder(): string {
+    return seed('qoder', 'active', JSON.stringify({ securityOauthToken: 't', userId: 'u' }));
+  }
+
+  function json(body: unknown): Response {
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  it('leaves the columns null for a 0/0 answer', async () => {
+    const id = seedQoder();
+    const warmup = makeWarmup(
+      stubFetch(() => json({ userQuota: { total: 0, used: 0, remaining: 0 }, isQuotaExceeded: true })),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    const row = accounts.findById(id);
+    expect(row?.quotaLimit).toBeNull();
+    expect(row?.quotaRemaining).toBeNull();
+  });
+
+  it('drops a reset that is a sentinel for never', async () => {
+    const id = seedQoder();
+    const warmup = makeWarmup(
+      stubFetch(() =>
+        json({
+          userQuota: { total: 500, remaining: 400 },
+          // Year 9999, which is what qoder sends for a plan that does not reset.
+          expiresAt: 253_402_214_400_000,
+        }),
+      ),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    const row = accounts.findById(id);
+    expect(row?.quotaLimit).toBe(500);
+    expect(row?.quotaRemaining).toBe(400);
+    expect(row?.quotaResetAt).toBeNull();
+  });
+});

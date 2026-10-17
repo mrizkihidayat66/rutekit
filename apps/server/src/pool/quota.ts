@@ -115,25 +115,40 @@ export function readQuotaBody(
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
   };
 
-  const limit = countAt(declared.limit);
-  const remaining = countAt(declared.remaining);
+  /**
+   * `0 / 0` is a provider saying it does not report a balance, not an account
+   * that has spent one. qoder answers exactly that on a plan it does not meter,
+   * and writing it down would show "0 of 0" as though the account were empty.
+   */
+  const reported = countAt(declared.limit);
+  const left = countAt(declared.remaining);
+  const unreported = reported === 0 && left === 0;
+  const limit = unreported ? null : reported;
+  const remaining = unreported ? null : left;
 
   const rawReset = declared.resetAt === null ? undefined : atPath(body, declared.resetAt);
   const resetAt =
     typeof rawReset === 'number' && Number.isFinite(rawReset) && rawReset > 0
       ? new Date(rawReset).toISOString()
       : null;
+  // A reset far in the future is a sentinel for "this does not reset", and qoder
+  // sends year 9999 for it. Rendering that as a date is worse than rendering
+  // nothing, so it is dropped rather than clamped.
+  const horizon = now.getTime() + 10 * 365 * 24 * 3600 * 1000;
+  const saneReset = resetAt !== null && Date.parse(resetAt) <= horizon ? resetAt : null;
 
-  if (limit === null && remaining === null && resetAt === null) return null;
+  if (limit === null && remaining === null && saneReset === null) return null;
 
   const windowSeconds =
-    resetAt === null ? null : Math.max(0, Math.round((Date.parse(resetAt) - now.getTime()) / 1000));
+    saneReset === null
+      ? null
+      : Math.max(0, Math.round((Date.parse(saneReset) - now.getTime()) / 1000));
 
   return {
     windowSeconds,
     limit,
     remaining,
-    resetAt,
+    resetAt: saneReset,
     creditBalance: null,
     creditCurrency: null,
   };
