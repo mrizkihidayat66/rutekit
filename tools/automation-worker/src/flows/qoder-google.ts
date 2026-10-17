@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { ItemAbandonedError, RetryableError, type ImportedAccount } from '../driver.ts';
 import { driveGoogleSignIn } from './google-signin.ts';
 import { asFlowError, clickAny, STEP_TIMEOUT_MS } from './shared.ts';
@@ -169,8 +171,19 @@ export const qoderGoogle: ProviderFlow = {
     const personalToken = await createPersonalToken(context);
     const exchanged = await exchangePersonalToken(context, personalToken);
 
+    // Recorded beside the token because the chat codec signs with them, and this
+    // is the only moment the flow has both the token and the account to store.
+    const identity = await fetchIdentity(exchanged.securityOauthToken);
+    const machineId = randomUUID();
+
     return {
-      credential: JSON.stringify({ personalToken, ...exchanged, email }),
+      credential: JSON.stringify({
+        personalToken,
+        ...exchanged,
+        ...identity,
+        machineId,
+        email,
+      }),
       label: item.label,
     };
   },
@@ -338,4 +351,44 @@ async function exchangePersonalToken(
     securityOauthToken: token,
     refreshToken: typeof payload?.refresh_token === 'string' ? payload.refresh_token : '',
   };
+}
+
+/**
+ * Who the account is, recorded beside the token.
+ *
+ * **The chat codec cannot sign a request without these.** qoder's signing carries
+ * the account's own id and type inside an encrypted payload, and neither is
+ * derivable from the token — a credential that holds only a token cannot be used
+ * for anything but quota reads. The identity is asked for here, once, at the
+ * moment the account is created, because this is the only point where the flow
+ * already has the token in hand and the account is about to be stored.
+ *
+ * A failure here is not fatal to the import: the account is still worth storing
+ * and the codec's own message names the missing field if it is asked to sign
+ * without one. What it must not do is invent a value — a wrong id signs a request
+ * that qoder rejects with no explanation at all.
+ */
+async function fetchIdentity(
+  securityOauthToken: string,
+): Promise<{ userId: string; userType: string }> {
+  try {
+    const response = await fetch('https://openapi.qoder.sh/api/v2/quota/usage', {
+      headers: {
+        authorization: `Bearer ${securityOauthToken}`,
+        'Cosy-ClientType': '5',
+        accept: 'application/json',
+      },
+    });
+    if (!response.ok) return { userId: '', userType: '' };
+    const body = (await response.json().catch(() => null)) as {
+      userId?: unknown;
+      userType?: unknown;
+    } | null;
+    return {
+      userId: typeof body?.userId === 'string' ? body.userId : '',
+      userType: typeof body?.userType === 'string' ? body.userType : '',
+    };
+  } catch {
+    return { userId: '', userType: '' };
+  }
 }
