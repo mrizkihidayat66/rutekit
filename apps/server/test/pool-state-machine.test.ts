@@ -45,10 +45,14 @@ describe('canTransition', () => {
   });
 
   it('refuses a move the table does not list', () => {
-    // `pending` is a fresh credential that has never been used, so there is
-    // nothing that could have rate-limited or exhausted it.
+    // `pending` is a fresh credential that has never been used, so nothing could
+    // have rate-limited it — a cooldown is the provider's answer to a request.
     expect(canTransition('pending', 'rate_limited')).toBe(false);
-    expect(canTransition('pending', 'exhausted')).toBe(false);
+    // `exhausted` is different, and deliberately allowed: the first probe reads
+    // the provider's own quota endpoint, which can say an imported account has
+    // no allowance before it has ever taken a turn. Refusing the move would
+    // promote it to `active` and send it requests it cannot serve.
+    expect(canTransition('pending', 'exhausted')).toBe(true);
     // An operator may also mark a disabled account as banned, but never the
     // reverse pair the table leaves out.
     expect(canTransition('disabled', 'banned')).toBe(true);

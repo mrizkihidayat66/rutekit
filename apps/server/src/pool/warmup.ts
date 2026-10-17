@@ -5,7 +5,10 @@ import { applyAuth, endpointUrl, probePath, withQuery } from '@registry';
 import type { IdFactory } from '@shared';
 import type { CryptoPort } from '@translator';
 
-import type { ProviderAccountsRepository } from '@server/persistence/provider-accounts.ts';
+import type {
+  AccountQuotaWrite,
+  ProviderAccountsRepository,
+} from '@server/persistence/provider-accounts.ts';
 import { readCredential } from '@server/providers/credential.ts';
 import { refreshCredential, refreshPolicyOf } from '@server/providers/credential-refresh.ts';
 import { retryAfterOf } from '@server/providers/dispatch-errors.ts';
@@ -14,7 +17,7 @@ import type { ServerConfig } from '@server/runtime/config.ts';
 import type { SecretBox } from '@server/security/secret-box.ts';
 
 import { createOutcomeWriter, OUTCOME_TRANSIENT, outcomeFromStatus } from './outcome.ts';
-import { readQuota } from './quota.ts';
+import { readQuota, readQuotaBody } from './quota.ts';
 
 /**
  * The warmup check-in (FR-3.5, FR-3.6).
@@ -41,6 +44,18 @@ import { readQuota } from './quota.ts';
  * is a timer, and a rejection would only reach an unhandled-rejection handler
  * that can do nothing with it.
  */
+
+/**
+ * The body mapping a manifest declared, or null when it states none.
+ *
+ * A policy with no `body` is the common case: most providers publish their limits
+ * in headers, and reading a body they never meant to be read would be a round trip
+ * spent on nothing.
+ */
+function quotaBodyOf(manifest: ProviderManifest) {
+  const policy = manifest.quota;
+  return policy.kind === 'none' ? null : policy.body;
+}
 
 export interface Warmup {
   /** Probe these providers' accounts, or every provider's when given nothing. */
@@ -212,6 +227,16 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     return merged['accessToken'] ?? null;
   }
 
+  /** A JSON body, or null when the text was not JSON at all. */
+  function parseJson(text: string): unknown {
+    if (text === '') return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
   async function probeAccount(
     manifest: ProviderManifest,
     accountId: string,
@@ -271,21 +296,37 @@ export function createWarmup(deps: WarmupDeps): Warmup {
       }
     }
 
-    // The body is not read: the status and the headers are the whole answer, and
-    // an unconsumed body would hold a socket until it times out.
-    void response.body?.cancel().catch(() => undefined);
+    // A provider that states its limits in the body needs the body read, and its
+    // headers are not enough: qoder's usage endpoint answers
+    // `{userQuota, isQuotaExceeded}` with no rate-limit headers at all, so every
+    // qoder account used to learn nothing from a probe. None was ever `exhausted`,
+    // and a free plan with no credit stayed in rotation answering an empty stream
+    // to every turn.
+    const declaredBody = quotaBodyOf(manifest);
+    let quota: AccountQuotaWrite | null = null;
+    let exhausted = false;
+
+    if (response.ok && declaredBody !== null) {
+      const text = await response.text().catch(() => '');
+      const read = readQuotaBody(parseJson(text), declaredBody, at);
+      if (read !== null) {
+        quota = read.quota;
+        exhausted = read.exhausted;
+      }
+    } else {
+      // The body is not read when it cannot say anything: the status and the
+      // headers are the whole answer, and an unconsumed body would hold a socket
+      // until it times out.
+      void response.body?.cancel().catch(() => undefined);
+      if (response.ok) quota = readQuota(response.headers, at);
+    }
 
     // The round trip is done and the answer is in hand, but the writes below go
     // to the database — so a stop that landed during the await still means
     // nothing more should be written.
     if (!live(mine)) return;
 
-    if (response.ok) {
-      const quota = readQuota(response.headers, at);
-      if (quota !== null) {
-        deps.accounts.setQuota(accountId, quota, at.toISOString());
-      }
-    }
+    if (quota !== null) deps.accounts.setQuota(accountId, quota, at.toISOString());
 
     // A 404 is the probe's own endpoint not being there, and it says nothing about
     // the credential. Reading it as a healthy answer would promote an account
@@ -296,6 +337,15 @@ export function createWarmup(deps: WarmupDeps): Warmup {
         { accountId, providerId: manifest.id },
         'the probe endpoint does not exist; this account was not verified',
       );
+      return;
+    }
+
+    // A provider that says in its body that the account cannot serve has
+    // exhausted it, and the status it used was a 200 — so the status alone would
+    // read as healthy. The account rests until the provider's own window reopens,
+    // which is the same treatment a 429 gets.
+    if (exhausted) {
+      writer.apply(accountId, outcomeFromStatus(402, null, at));
       return;
     }
 

@@ -25,8 +25,10 @@ import { accountStateSchema, ROUTABLE_ACCOUNT_STATES, type AccountState } from '
  * are also the only states `RECOVERABLE_ACCOUNT_STATES` in the contract names.
  */
 const TRANSITIONS: Readonly<Record<AccountState, readonly AccountState[]>> = {
-  // A new account proves itself by being used once, or fails its first use.
-  pending: ['active', 'error', 'banned', 'disabled'],
+  // A new account proves itself by being used once, or fails its first use. A
+  // probe that finds it out of quota is a third answer: the credential is good
+  // and the account cannot serve yet, so it rests rather than being promoted.
+  pending: ['active', 'exhausted', 'error', 'banned', 'disabled'],
   active: ['rate_limited', 'exhausted', 'error', 'banned', 'disabled'],
   rate_limited: ['active', 'exhausted', 'error', 'banned', 'disabled'],
   exhausted: ['active', 'rate_limited', 'error', 'banned', 'disabled'],
@@ -43,6 +45,7 @@ const TRANSITIONS: Readonly<Record<AccountState, readonly AccountState[]>> = {
  */
 const AUTOMATIC: ReadonlySet<string> = new Set([
   'pending->active',
+  'pending->exhausted',
   'pending->error',
   'pending->banned',
   'active->rate_limited',

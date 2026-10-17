@@ -75,6 +75,87 @@ export function parseResetAt(raw: string | null, now: Date): string | null {
  * learned. A provider that stopped sending headers is a provider we know less
  * about, not one whose window disappeared.
  */
+/** What a provider's JSON answer says about one account's allowance. */
+export interface QuotaBodyRead {
+  readonly quota: AccountQuotaWrite;
+  /** True when the provider itself said this account cannot serve. */
+  readonly exhausted: boolean;
+}
+
+/** The value at a dot path, or undefined when the path does not resolve. */
+function atPath(value: unknown, path: string | null): unknown {
+  if (path === null) return value;
+  let cursor: unknown = value;
+  for (const key of path.split('.')) {
+    if (cursor === null || typeof cursor !== 'object') return undefined;
+    cursor = (cursor as Record<string, unknown>)[key];
+  }
+  return cursor;
+}
+
+/**
+ * The quota write a JSON answer supports, or null when it carries none.
+ *
+ * **A provider may state its limits in the body and nowhere else.** qoder is the
+ * case: its usage endpoint answers `{userQuota: {total, remaining}, isQuotaExceeded}`
+ * and its headers are silent, so a probe that read only headers learned nothing
+ * about any qoder account. None was ever `exhausted`, and a free plan with no
+ * credit stayed in rotation answering an empty stream to every turn.
+ *
+ * The mapping is declared by the manifest — paths, not code — so the next provider
+ * with a body of its own needs a manifest edit and not a change here. A path that
+ * does not resolve leaves its field null rather than guessing, and an answer with
+ * nothing resolvable at all is null, which the caller treats as "learned nothing".
+ */
+export function readQuotaBody(
+  body: unknown,
+  declared: {
+    readonly remaining: string | null;
+    readonly limit: string | null;
+    readonly exhausted: string | null;
+    readonly resetAt: string | null;
+  },
+  now: Date,
+): QuotaBodyRead | null {
+  const countAt = (path: string | null): number | null => {
+    if (path === null) return null;
+    const value = atPath(body, path);
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  };
+
+  const limit = countAt(declared.limit);
+  const remaining = countAt(declared.remaining);
+
+  // The provider's own verdict, which is not the same as the arithmetic: qoder
+  // sets this flag on a plan whose allowance is zero, where "remaining" alone
+  // would look like an account that simply has not started spending.
+  const flag = declared.exhausted === null ? undefined : atPath(body, declared.exhausted);
+  const exhausted = flag === true;
+
+  const rawReset = declared.resetAt === null ? undefined : atPath(body, declared.resetAt);
+  const resetAt =
+    typeof rawReset === 'number' && Number.isFinite(rawReset) && rawReset > 0
+      ? new Date(rawReset).toISOString()
+      : null;
+
+  if (limit === null && remaining === null && !exhausted && resetAt === null) return null;
+
+  const windowSeconds =
+    resetAt === null ? null : Math.max(0, Math.round((Date.parse(resetAt) - now.getTime()) / 1000));
+
+  return {
+    quota: {
+      windowSeconds,
+      limit,
+      remaining,
+      resetAt,
+      creditBalance: null,
+      creditCurrency: null,
+    },
+    exhausted,
+  };
+}
+
 export function readQuota(headers: Headers, now: Date): AccountQuotaWrite | null {
   const limit = countOf(firstOf(headers, LIMIT_HEADERS));
   const remaining = countOf(firstOf(headers, REMAINING_HEADERS));

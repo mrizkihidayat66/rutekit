@@ -672,3 +672,92 @@ describe('a refusal that a renewal can undo', () => {
     expect(accounts.findById(id)?.state).toBe('banned');
   });
 });
+
+describe('a provider that states its limits in the body', () => {
+  /**
+   * qoder's usage endpoint answers `{userQuota, isQuotaExceeded}` and no
+   * rate-limit headers at all, so a probe that read only headers learned nothing
+   * about any qoder account: none was ever `exhausted`, and a free plan with zero
+   * credit stayed in rotation answering an empty stream to every turn.
+   *
+   * The mapping is the manifest's — paths, not code — so this exercises the
+   * mechanism through a manifest rather than through qoder's own numbers.
+   */
+
+  function seedWithBody(state = 'pending'): string {
+    return seed('qoder', state, JSON.stringify({ securityOauthToken: 't', userId: 'u' }));
+  }
+
+  function json(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  it('records the balance the body reported', async () => {
+    const id = seedWithBody();
+    const warmup = makeWarmup(
+      stubFetch(() =>
+        json({
+          userQuota: { total: 500, used: 120, remaining: 380 },
+          isQuotaExceeded: false,
+          expiresAt: Date.parse('2026-10-13T13:00:00.000Z'),
+        }),
+      ),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    const row = accounts.findById(id);
+    expect(row?.quotaLimit).toBe(500);
+    expect(row?.quotaRemaining).toBe(380);
+    expect(row?.quotaResetAt).toBe('2026-10-13T13:00:00.000Z');
+  });
+
+  it('parks an account the provider itself called exhausted', async () => {
+    // A 200 whose body says the account cannot serve. Reading the status alone
+    // would promote it to `active` and send it every turn.
+    const id = seedWithBody();
+    const warmup = makeWarmup(
+      stubFetch(() =>
+        json({
+          userQuota: { total: 0, used: 0, remaining: 0 },
+          isQuotaExceeded: true,
+          expiresAt: Date.parse('2026-10-13T13:00:00.000Z'),
+        }),
+      ),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    expect(accounts.findById(id)?.state).toBe('exhausted');
+  });
+
+  it('does not park an account whose balance is zero but is not flagged', async () => {
+    // 0/0 is how a provider says it does not report a balance, not that the
+    // account has spent one — which is why the flag is read as well as the sum.
+    const id = seedWithBody();
+    const warmup = makeWarmup(
+      stubFetch(() => json({ userQuota: { total: 0, used: 0, remaining: 0 }, isQuotaExceeded: false })),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    expect(accounts.findById(id)?.state).toBe('active');
+  });
+
+  it('still reads headers for a provider that declares no body', async () => {
+    // The common case, and it must not regress: reading a body nobody meant to
+    // be read would spend the round trip on nothing.
+    const id = seed();
+    const warmup = makeWarmup(
+      stubFetch(() => ok({ 'x-ratelimit-limit-requests': '100', 'x-ratelimit-remaining-requests': '90' })),
+    );
+
+    await warmup.checkIn(['openai']);
+
+    expect(accounts.findById(id)?.quotaLimit).toBe(100);
+    expect(accounts.findById(id)?.quotaRemaining).toBe(90);
+  });
+});

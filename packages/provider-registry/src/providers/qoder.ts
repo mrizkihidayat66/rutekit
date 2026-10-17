@@ -183,10 +183,25 @@ export const qoder: ProviderManifestInput = {
     },
   ],
 
+  // Its limits are in the body, and nowhere else. The usage endpoint answers
+  // `{userQuota: {total, remaining}, isQuotaExceeded}` with no rate-limit headers
+  // at all, so a probe that read only headers learned nothing about any qoder
+  // account — none was ever `exhausted`, and a free plan with zero credit stayed
+  // in rotation answering an empty stream to every turn.
+  //
+  // `isQuotaExceeded` is read as well as the arithmetic, because it is the
+  // provider's own verdict: on a plan whose allowance is zero, `remaining` alone
+  // looks like an account that has not started spending.
   quota: {
-    kind: 'window',
-    source: 'headers',
-    windows: [{ windowSeconds: 18_000, label: '5-hour' }],
+    kind: 'credit',
+    source: 'endpoint',
+    path: '/api/v2/quota/usage',
+    body: {
+      remaining: 'userQuota.remaining',
+      limit: 'userQuota.total',
+      exhausted: 'isQuotaExceeded',
+      resetAt: 'expiresAt',
+    },
   },
 
   errors: [

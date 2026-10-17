@@ -15,6 +15,32 @@ export const noQuotaPolicySchema = z.object({
 });
 
 /**
+ * Where a provider puts its quota figures in a JSON answer.
+ *
+ * **Not every provider states its limits in headers.** qoder reports them in the
+ * body of its usage endpoint — a balance in `userQuota` and an explicit
+ * `isQuotaExceeded` flag — and its headers say nothing at all. Without this, the
+ * probe read zero figures for every qoder account and none of them was ever
+ * `exhausted`, so a plan with no credit stayed in rotation and answered an empty
+ * stream to every turn.
+ *
+ * A path rather than a predicate: the mechanism stays provider-neutral and a new
+ * provider needs no code, which is the same reason `bodyTemplate` exists on the
+ * refresh side. `exhaustedAt` is separate from `remaining` because a provider may
+ * state the verdict without stating the arithmetic, and qoder does exactly that.
+ */
+export const quotaBodySchema = z.object({
+  /** Dot path from the answer's root to the remaining amount. */
+  remaining: z.string().min(1).nullable().default(null),
+  /** Dot path to the total allowance. */
+  limit: z.string().min(1).nullable().default(null),
+  /** Dot path to a boolean the provider sets when the account cannot serve. */
+  exhausted: z.string().min(1).nullable().default(null),
+  /** Dot path to a reset instant, in milliseconds since the epoch. */
+  resetAt: z.string().min(1).nullable().default(null),
+});
+
+/**
  * A rate allowance that refills on a clock, and what the provider enforces.
  *
  * `windows` is the provider's own shape — the usual pair is an hourly and a
@@ -36,6 +62,8 @@ export const windowQuotaPolicySchema = z.object({
       }),
     )
     .default([]),
+  /** How to read the figures out of the endpoint's JSON body; null for headers. */
+  body: quotaBodySchema.nullable().default(null),
 });
 
 /**
@@ -50,6 +78,8 @@ export const creditQuotaPolicySchema = z.object({
   kind: z.literal('credit'),
   source: z.enum(['headers', 'endpoint']),
   path: z.string().min(1).nullable().default(null),
+  /** How to read the figures out of the endpoint's JSON body; null for headers. */
+  body: quotaBodySchema.nullable().default(null),
 });
 
 export const quotaPolicySchema = z.discriminatedUnion('kind', [
