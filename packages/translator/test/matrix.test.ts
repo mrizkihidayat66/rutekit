@@ -1,4 +1,6 @@
 import { createIdFactory } from '@shared';
+
+import { testCrypto } from './crypto-stand-in.ts';
 import {
   chatCompletionResponseSchema,
   completionResponseSchema,
@@ -48,7 +50,23 @@ import { crc32 } from '../src/codecs/kiro-eventstream.ts';
 const ids = createIdFactory((bytes) => new Uint8Array(bytes));
 
 function context(model = 'gpt-4o'): CodecContext {
-  return { now: () => 1_700_000_000, ids, model, account: {} };
+  // The account fields are for qoder, whose request signing carries the account's
+  // own id and type — a codec that cannot sign refuses rather than sending a
+  // request it knows will be rejected, so the matrix has to give it something to
+  // sign with.
+  return {
+    now: () => 1_700_000_000,
+    ids,
+    model,
+    account: {
+      userId: 'user-1',
+      userType: 'personal_standard',
+      securityOauthToken: 'bearer-1',
+      refreshToken: 'refresh-1',
+      machineId: 'machine-1',
+    },
+    crypto: testCrypto,
+  };
 }
 
 /**
@@ -98,6 +116,37 @@ function concatBytes(...parts: readonly Uint8Array[]): Uint8Array {
     at += part.length;
   }
   return out;
+}
+
+/**
+ * A signed family's body, decoded back to text.
+ *
+ * qoder's body is a JSON document run through a rotation and a substitution, so
+ * the model id is in there and not readable until the encoding is undone. This is
+ * the inverse, written from the format rather than from the encoder — which is
+ * also what makes the round trip evidence about the format.
+ */
+function decodeQoderBody(encoded: string): string {
+  const custom = '_doRTgHZBKcGVjlvpC,@aFSx#DPuNJme&i*MzLOEn)sUrthbf%Y^w.(kIQyXqWA!';
+  const standard = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const back = new Map<string, string>();
+  for (let index = 0; index < 64; index += 1) back.set(custom[index] as string, standard[index] as string);
+  back.set('$', '=');
+
+  const rotated = [...encoded].map((character) => back.get(character) ?? '').join('');
+  const length = rotated.length;
+  const third = Math.floor(length / 3);
+  const unrotated =
+    rotated.slice(length - third) + rotated.slice(third, length - third) + rotated.slice(0, third);
+  return Buffer.from(unrotated, 'base64').toString('utf8');
+}
+
+/** One qoder SSE body: an envelope whose `body` is the [OI] chunk as a string. */
+function qoderEnvelope(chunk: unknown): Uint8Array {
+  const frame = `data:${JSON.stringify({ headers: { 'Content-Type': ['application/json'] }, body: JSON.stringify(chunk), statusCodeValue: 200, statusCode: 'OK' })}
+
+`;
+  return new TextEncoder().encode(frame);
 }
 
 /** A body as the codec now receives it: bytes, whichever family it belongs to. */
@@ -167,6 +216,16 @@ const PROVIDER_ANSWER: Readonly<Record<WireFamily, unknown>> = {
     eventStreamFrame('assistantResponseEvent', { content: 'hello' }),
     eventStreamFrame('meteringEvent', { usage: { inputTokens: 3, outputTokens: 2 } }),
   ),
+  // qoder's answer is [OI] chunks inside an envelope of its own: the frame's
+  // `data` is an object whose `body` is the chunk as a string. Built here so the
+  // fixture is the wire, not the codec's own output.
+  // Two frames, because this wire reports the text and the usage separately —
+  // the same arrangement kiro has, and for the same reason: a metering event is
+  // its own message.
+  qoder: concatBytes(
+    qoderEnvelope({ id: 'chatcmpl-1', model: 'lite', created: 1_700_000_000, choices: [{ index: 0, delta: { role: 'assistant', content: 'hello' } }] }),
+    qoderEnvelope({ choices: [], usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 } }),
+  ),
   custom: null,
 };
 
@@ -229,10 +288,14 @@ describe('the surface × family matrix', () => {
       const encoded = codec.encodeRequest(canonical, context());
 
       // A path relative to the provider's base URL, and a body with something in
-      // it — the two things every family has.
+      // it — the two things every family has. A body may be an encoded string
+      // rather than an object, because a wire that signs its body sends the
+      // bytes it signed; either way it has to be non-empty.
       expect(encoded.path.startsWith('/')).toBe(true);
       expect(encoded.path.length).toBeGreaterThan(1);
-      expect(Object.keys(encoded.body).length).toBeGreaterThan(0);
+      const bodyLength =
+        typeof encoded.body === 'string' ? encoded.body.length : Object.keys(encoded.body).length;
+      expect(bodyLength).toBeGreaterThan(0);
 
       // The model reaches the provider *somewhere*, and where is the family's
       // business: three families put it in the body, and Google puts it in the
@@ -240,7 +303,17 @@ describe('the surface × family matrix', () => {
       // what Gemini's API does. Asserting the body specifically would have been
       // an assumption about one family's shape dressed up as a property of all
       // of them — which is exactly what this test caught the first time it ran.
-      expect(`${encoded.path}${JSON.stringify(encoded.body)}`).toContain('gpt-4o');
+      // The model reaches the provider *somewhere*, and where is the family's
+      // business. Three put it in the body, Google puts it in the path, and a
+      // signed family puts it in a body that is not readable until it is decoded
+      // — so a family that encodes its body is asked to decode it rather than
+      // being failed for not being legible.
+      const readable =
+        typeof encoded.body === 'string'
+          ? decodeQoderBody(encoded.body)
+          : JSON.stringify(encoded.body);
+      const searchable = `${encoded.path}${readable}${JSON.stringify(encoded.headers ?? {})}`;
+      expect(searchable).toContain('gpt-4o');
     });
 
     it('decodes the family’s answer, or has no codec to decode with', () => {

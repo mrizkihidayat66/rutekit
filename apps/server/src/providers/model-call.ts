@@ -14,6 +14,7 @@ import type {
 } from '@translator';
 import type { IdFactory } from '@shared';
 
+import { nodeCrypto } from './codec-crypto.ts';
 import { AppError } from '@server/errors.ts';
 import { degrade, type ControlKind } from '@server/plan/capability.ts';
 import type { Pool } from '@server/pool/pool.ts';
@@ -212,7 +213,13 @@ export async function callModel(
      * nowhere to come from.
      */
     const account = lease.credential.fields;
-    const context: CodecContext = { now: deps.now, ids: deps.ids, model: call.modelId, account };
+    const context: CodecContext = {
+      now: deps.now,
+      ids: deps.ids,
+      model: call.modelId,
+      account,
+      crypto: nodeCrypto,
+    };
     const encoded = call.codec.encodeRequest(outbound.request, context);
 
     // The body that actually leaves rutekit, after degradation, the Token Saver,
@@ -248,8 +255,15 @@ export async function callModel(
           accept: request.stream ? 'text/event-stream' : 'application/json',
           ...call.manifest.endpoint.headers,
           ...auth.headers,
+          // Last, so a codec that signs a request can set the headers the
+          // signature lives in. The manifest's and the credential's are defaults
+          // a codec overrides rather than competitors.
+          ...encoded.headers,
         },
-        body: JSON.stringify(encoded.body),
+        // A string is already encoded — a wire that signs its body sends what the
+        // signature was computed over, not a re-serialisation of it, and those
+        // two are different strings.
+        body: typeof encoded.body === 'string' ? encoded.body : JSON.stringify(encoded.body),
         stream: request.stream,
       },
       {

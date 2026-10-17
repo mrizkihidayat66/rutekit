@@ -79,7 +79,7 @@ describe('the shipped catalogue', () => {
     // has learned yet: it is reachable by probe and not by `/v1`. Every other name
     // is one `codecFor` answers for, so this list and the codec registry are the
     // same set by construction rather than by coincidence.
-    expect([...families].sort()).toEqual(['anthropic', 'custom', 'google', 'kiro', 'openai']);
+    expect([...families].sort()).toEqual(['anthropic', 'custom', 'google', 'kiro', 'openai', 'qoder']);
   });
 
   it('gives every provider that serves a chat at least one curated model', () => {

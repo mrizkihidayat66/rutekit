@@ -1,4 +1,6 @@
 import { createIdFactory } from '@shared';
+
+import { testCrypto } from './crypto-stand-in.ts';
 import type { CanonicalResult } from '../src/canonical-result.ts';
 import type { StreamDecoder } from '../src/codecs/types.ts';
 import { describe, expect, it } from 'vitest';
@@ -64,8 +66,21 @@ function decodeGoogleResponse(body: unknown, ctx: CodecContext): CanonicalResult
   return decodeGoogleResponseBytes(encodeBody(body), ctx);
 }
 
+/**
+ * A codec's request body, as an object.
+ *
+ * `EncodedRequest.body` is an object or a string, because a wire may want its
+ * body encoded rather than serialised — qoder signs a body and sends exactly the
+ * bytes it signed. The SSE families all return an object, so the tests read it
+ * through this and the assertion says which shape they expected.
+ */
+function objectBody(encoded: { readonly body: Record<string, unknown> | string }): Record<string, unknown> {
+  if (typeof encoded.body === 'string') throw new Error('this codec returned an encoded string');
+  return encoded.body;
+}
+
 function context(model = 'gpt-4o'): CodecContext {
-  return { now: () => 1_700_000_000, ids, model, account: {} };
+  return { now: () => 1_700_000_000, ids, model, account: {}, crypto: testCrypto };
 }
 
 /**
@@ -161,7 +176,7 @@ describe('OpenAI request encoding', () => {
     );
 
     expect(encoded.path).toBe('/chat/completions');
-    expect(encoded.body.messages).toEqual([
+    expect(objectBody(encoded).messages).toEqual([
       { role: 'system', content: 'be terse' },
       { role: 'user', content: 'hi' },
     ]);
@@ -181,7 +196,7 @@ describe('OpenAI request encoding', () => {
       }),
     );
 
-    expect(encoded.body.messages).toEqual([{ role: 'tool', tool_call_id: 'call_1', content: '32' }]);
+    expect(objectBody(encoded).messages).toEqual([{ role: 'tool', tool_call_id: 'call_1', content: '32' }]);
   });
 
   it('carries tool calls as a JSON string, and nulls content when there is no text', () => {
@@ -198,7 +213,7 @@ describe('OpenAI request encoding', () => {
       }),
     );
 
-    expect(encoded.body.messages).toEqual([
+    expect(objectBody(encoded).messages).toEqual([
       {
         role: 'assistant',
         content: null,
@@ -211,17 +226,17 @@ describe('OpenAI request encoding', () => {
 
   it('asks for usage on a stream, since the pivot has no field for the opt-in', () => {
     const encoded = encodeOpenAiRequest(request({ stream: true }));
-    expect(encoded.body.stream_options).toEqual({ include_usage: true });
+    expect(objectBody(encoded).stream_options).toEqual({ include_usage: true });
   });
 
   it('lets a client keep its own stream_options, because extras go first', () => {
     const encoded = encodeOpenAiRequest(request({ stream: true, extras: { stream_options: { include_usage: false } } }));
-    expect(encoded.body.stream_options).toEqual({ include_usage: false });
+    expect(objectBody(encoded).stream_options).toEqual({ include_usage: false });
   });
 
   it('lets the pivot win over an extra that shares a field name', () => {
     const encoded = encodeOpenAiRequest(request({ model: 'gpt-4o', extras: { model: 'spoofed' } }));
-    expect(encoded.body.model).toBe('gpt-4o');
+    expect(objectBody(encoded).model).toBe('gpt-4o');
   });
 
   it('switches to a part list only when an image forces it', () => {
@@ -241,7 +256,7 @@ describe('OpenAI request encoding', () => {
       }),
     );
 
-    expect(encoded.body.messages).toEqual([
+    expect(objectBody(encoded).messages).toEqual([
       {
         role: 'user',
         content: [
@@ -254,7 +269,7 @@ describe('OpenAI request encoding', () => {
 
   it('drops top_k, which this family has no spelling for', () => {
     const encoded = encodeOpenAiRequest(request({ sampling: { ...request().sampling, topK: 5 } }));
-    expect('top_k' in encoded.body).toBe(false);
+    expect('top_k' in objectBody(encoded)).toBe(false);
   });
 });
 
@@ -393,22 +408,22 @@ describe('Anthropic request encoding', () => {
   it('defaults max_tokens, which this family requires', () => {
     const encoded = encodeAnthropicRequest(request());
     expect(encoded.path).toBe('/messages');
-    expect(encoded.body.max_tokens).toBe(4096);
+    expect(objectBody(encoded).max_tokens).toBe(4096);
   });
 
   it('carries the system prompt at the top level, not in the message list', () => {
     const encoded = encodeAnthropicRequest(request({ system: [{ type: 'text', text: 'be terse' }] }));
-    expect(encoded.body.system).toEqual([{ type: 'text', text: 'be terse' }]);
-    expect(encoded.body.messages).toEqual([
+    expect(objectBody(encoded).system).toEqual([{ type: 'text', text: 'be terse' }]);
+    expect(objectBody(encoded).messages).toEqual([
       { role: 'user', content: [{ type: 'text', text: 'hi' }] },
     ]);
   });
 
   it('maps every tool-choice spelling', () => {
-    expect(encodeAnthropicRequest(request({ toolChoice: 'auto' })).body.tool_choice).toEqual({ type: 'auto' });
-    expect(encodeAnthropicRequest(request({ toolChoice: 'none' })).body.tool_choice).toEqual({ type: 'none' });
-    expect(encodeAnthropicRequest(request({ toolChoice: 'required' })).body.tool_choice).toEqual({ type: 'any' });
-    expect(encodeAnthropicRequest(request({ toolChoice: { type: 'tool', name: 'f' } })).body.tool_choice).toEqual({
+    expect(objectBody(encodeAnthropicRequest(request({ toolChoice: 'auto' }))).tool_choice).toEqual({ type: 'auto' });
+    expect(objectBody(encodeAnthropicRequest(request({ toolChoice: 'none' }))).tool_choice).toEqual({ type: 'none' });
+    expect(objectBody(encodeAnthropicRequest(request({ toolChoice: 'required' }))).tool_choice).toEqual({ type: 'any' });
+    expect(objectBody(encodeAnthropicRequest(request({ toolChoice: { type: 'tool', name: 'f' } }))).tool_choice).toEqual({
       type: 'tool',
       name: 'f',
     });
@@ -418,8 +433,8 @@ describe('Anthropic request encoding', () => {
     const encoded = encodeAnthropicRequest(
       request({ sampling: { ...request().sampling, seed: 7, presencePenalty: 1 } }),
     );
-    expect('seed' in encoded.body).toBe(false);
-    expect('presence_penalty' in encoded.body).toBe(false);
+    expect('seed' in objectBody(encoded)).toBe(false);
+    expect('presence_penalty' in objectBody(encoded)).toBe(false);
   });
 });
 
@@ -535,8 +550,8 @@ describe('Google request encoding', () => {
       }),
     );
 
-    expect(encoded.body.systemInstruction).toEqual({ parts: [{ text: 'be terse' }] });
-    expect(encoded.body.generationConfig).toEqual({ temperature: 0.5, maxOutputTokens: 128 });
+    expect(objectBody(encoded).systemInstruction).toEqual({ parts: [{ text: 'be terse' }] });
+    expect(objectBody(encoded).generationConfig).toEqual({ temperature: 0.5, maxOutputTokens: 128 });
   });
 
   it('wraps tools in a functionDeclarations list', () => {
@@ -544,14 +559,14 @@ describe('Google request encoding', () => {
       request({ tools: [{ name: 'f', description: 'does f', parameters: { type: 'object' } }] }),
     );
 
-    expect(encoded.body.tools).toEqual([
+    expect(objectBody(encoded).tools).toEqual([
       { functionDeclarations: [{ name: 'f', description: 'does f', parameters: { type: 'object' } }] },
     ]);
   });
 
   it('maps a named tool choice to an ANY mode limited to that name', () => {
     const encoded = encodeGoogleRequest(request({ toolChoice: { type: 'tool', name: 'f' } }));
-    expect(encoded.body.toolConfig).toEqual({
+    expect(objectBody(encoded).toolConfig).toEqual({
       functionCallingConfig: { mode: 'ANY', allowedFunctionNames: ['f'] },
     });
   });
@@ -571,7 +586,7 @@ describe('Google request encoding', () => {
       }),
     );
 
-    const contents = encoded.body.contents as { role: string; parts: Record<string, unknown>[] }[];
+    const contents = objectBody(encoded).contents as { role: string; parts: Record<string, unknown>[] }[];
     expect(contents[1]?.parts[0]).toEqual({ functionResponse: { name: 'get_weather', response: { content: '32' } } });
   });
 });

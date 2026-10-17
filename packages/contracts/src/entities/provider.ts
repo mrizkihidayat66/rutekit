@@ -27,11 +27,13 @@ export const providerCategorySchema = z.enum([
  * reached through `/v1` at all, only probed. Adding a family here is what makes a
  * provider reachable, and each one is a codec in `packages/translator`.
  *
- * `kiro` is the fourth that has one. Its request is JSON of its own shape and its
- * response is AWS EventStream — length-prefixed binary, not SSE — so it is a
- * family rather than a variation on any of the three above.
+ * `kiro` and `qoder` are the fourth and fifth that have one. kiro's request is
+ * JSON of its own shape and its response is AWS EventStream — length-prefixed
+ * binary, not SSE. qoder's request is signed and its response is [OI] chunks
+ * inside an envelope of qoder's own. Neither is a variation on the three above,
+ * which is the whole test for whether a family is warranted.
  */
-export const wireFamilySchema = z.enum(['openai', 'anthropic', 'google', 'kiro', 'custom']);
+export const wireFamilySchema = z.enum(['openai', 'anthropic', 'google', 'kiro', 'qoder', 'custom']);
 
 export const providerStatusSchema = z.enum(['ready', 'needs_auth', 'error', 'disabled']);
 

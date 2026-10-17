@@ -1,4 +1,6 @@
 import { createIdFactory } from '@shared';
+
+import { testCrypto } from './crypto-stand-in.ts';
 import { describe, expect, it } from 'vitest';
 
 import type { CanonicalRequest } from '../src/canonical-request.ts';
@@ -27,7 +29,7 @@ import type { CodecContext } from '../src/codecs/types.ts';
 const ids = createIdFactory((bytes) => new Uint8Array(bytes));
 
 function context(account: Readonly<Record<string, string>> = {}): CodecContext {
-  return { now: () => 1_700_000_000, ids, model: 'auto', account };
+  return { now: () => 1_700_000_000, ids, model: 'auto', account, crypto: testCrypto };
 }
 
 /** One AWS EventStream frame, built to the format's own rules. */

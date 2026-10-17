@@ -106,6 +106,7 @@ export function reasoningAsk(family: WireFamily, level: ThinkingLevel): Reasonin
     }
     case 'google':
     case 'kiro':
+    case 'qoder':
     case 'custom':
       return NOTHING;
   }

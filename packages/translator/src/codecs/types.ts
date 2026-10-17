@@ -38,6 +38,36 @@ export interface CodecContext {
    * not parse as a JSON object has no named fields to offer.
    */
   readonly account: Readonly<Record<string, string>>;
+  /**
+   * The cryptographic primitives this package cannot compute.
+   *
+   * **Injected rather than imported, and not only for tidiness.** This package is
+   * pure — nothing in it reaches for `node:*` — which is what lets the same
+   * translation run in a browser, in a test, and in the server. A wire that signs
+   * its requests needs primitives that are not arithmetic: MD5, RSA and AES.
+   * Those arrive through this port, so the codec stays testable against a
+   * deterministic stand-in while the server supplies the real thing.
+   *
+   * Base64 is deliberately *not* here: it is arithmetic, and the codec that needs
+   * it implements it rather than widening the port.
+   */
+  readonly crypto: CryptoPort;
+}
+
+/**
+ * What a signing codec needs from the platform.
+ *
+ * Three primitives, each named for what the wire does with it rather than for the
+ * algorithm alone — `rsaEncryptPkcs1` says which padding, because that is the
+ * part a provider notices when it is wrong.
+ */
+export interface CryptoPort {
+  /** MD5, hex-encoded. A signature primitive, not a security one. */
+  md5Hex(text: string): string;
+  /** RSA encryption with PKCS#1 v1.5 padding, against a PEM public key. */
+  rsaEncryptPkcs1(publicKeyPem: string, data: Uint8Array): Uint8Array;
+  /** AES-CBC. The caller passes the IV, because one wire uses the key as its own. */
+  aesCbcEncrypt(key: Uint8Array, iv: Uint8Array, data: Uint8Array): Uint8Array;
 }
 
 /** A body ready for the wire, and the path it belongs on. */
@@ -48,7 +78,26 @@ export interface EncodedRequest {
    * knows a provider that mounted the same API somewhere unexpected.
    */
   readonly path: string;
-  readonly body: Record<string, unknown>;
+  /**
+   * The request body.
+   *
+   * A string as well as an object, because a wire may want its body encoded
+   * rather than serialised: qoder's is a JSON document run through a signing
+   * step and then re-encoded, so what leaves is not `JSON.stringify` of anything
+   * the pivot holds. Handing the transport an already-encoded string is the only
+   * way to express that without teaching every caller a provider's codec.
+   */
+  readonly body: Record<string, unknown> | string;
+  /**
+   * Headers this wire needs that no other layer can produce.
+   *
+   * Most providers are authenticated by one header, which the manifest describes
+   * and `applyAuth` writes. A signed request is not: qoder sends a date, a
+   * session key, a client type and a signature derived from all of them, and
+   * those are the codec's own arithmetic. Merged over the manifest's and the
+   * credential's, so a codec can override a default rather than fight it.
+   */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 /**

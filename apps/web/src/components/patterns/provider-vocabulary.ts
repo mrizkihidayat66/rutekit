@@ -81,10 +81,11 @@ export const WIRE_FAMILY_LABELS: Record<WireFamily, string> = {
   anthropic: 'Anthropic Messages',
   google: 'Google Generative AI',
   kiro: 'Kiro',
+  qoder: 'Qoder',
   custom: 'Custom',
 };
 
-export const WIRE_FAMILIES: readonly WireFamily[] = ['openai', 'anthropic', 'google', 'kiro', 'custom'];
+export const WIRE_FAMILIES: readonly WireFamily[] = ['openai', 'anthropic', 'google', 'kiro', 'qoder', 'custom'];
 
 /* ---- Account ---- */
 

@@ -23,9 +23,13 @@ export const qoder: ProviderManifestInput = {
   docsUrl: 'https://qoder.com',
   freeTier: true,
 
+  // Its own wire family, with a codec to match: the request is signed with a
+  // session key and the response is [OI] chunks inside an envelope of qoder's
+  // own. `chatPath` stays null because the path is part of the signature, so only
+  // the codec can produce it.
   endpoint: {
     baseUrl: 'https://api3.qoder.sh',
-    wireFamily: 'custom',
+    wireFamily: 'qoder',
     chatPath: null,
   },
 
