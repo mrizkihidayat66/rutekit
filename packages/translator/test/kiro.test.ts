@@ -206,6 +206,20 @@ describe('the request', () => {
     expect(history[1]).toHaveProperty('assistantResponseMessage');
   });
 
+  it('sends UUIDs for the conversation ids, because this wire types them', () => {
+    // A live account answered `REQUEST_BODY_INVALID` for an opaque token in
+    // `agentContinuationId` — a 400 that names the body while the fault is one
+    // field's shape. Pinned as a pattern rather than a value, because the ids are
+    // random: what matters is that neither is the opaque form.
+    const encoded = encodeKiroRequest(request, context({ profileArn: 'arn' }));
+    const state = (encoded.body as { conversationState: Record<string, unknown> })
+      .conversationState;
+
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+    expect(state['agentContinuationId']).toMatch(uuid);
+    expect(state['conversationId']).toMatch(uuid);
+  });
+
   it('sends the model the client asked for, not a mapped stand-in', () => {
     const encoded = encodeKiroRequest({ ...request, model: 'glm-5' }, context({ profileArn: 'arn' }));
     const state = (encoded.body as { conversationState: Record<string, unknown> })

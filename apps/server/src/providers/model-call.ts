@@ -254,7 +254,10 @@ export async function callModel(
       );
     }
 
-    const auth = applyAuth(call.manifest, lease.credential.value);
+    // The renewed token when there is one: `lease.credential.value` is what was
+    // stored before this turn, and a renewal exists precisely because that value
+    // may already be refused upstream.
+    const auth = applyAuth(call.manifest, account['accessToken'] ?? lease.credential.value);
     const joined =
       Object.keys(auth.query).length === 0 ? target.url : withQuery(target.url, auth.query);
     // A codec that named its own origin is talking about a host the manifest does

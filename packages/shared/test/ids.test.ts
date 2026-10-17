@@ -52,3 +52,21 @@ describe('createIdFactory', () => {
     expect(createIdFactory(short, 6).opaque()).toBe('aaaaaa');
   });
 });
+
+describe('a UUID', () => {
+  it('has the version and variant bits RFC 4122 asks for', () => {
+    // kiro types `agentContinuationId` as a UUID and answers
+    // `REQUEST_BODY_INVALID` for an opaque token, which reads as "the body is
+    // malformed" rather than "that field has the wrong shape". The nibbles are
+    // the whole difference, so they are what the test pins.
+    const ids = createIdFactory(counting());
+    expect(ids.uuid()).toBe('00010203-0405-4607-8809-0a0b0c0d0e0f');
+  });
+
+  it('is sixteen bytes and two dashes away from any other id', () => {
+    const ids = createIdFactory((bytes) => new Uint8Array(bytes).fill(0xff));
+    const value = ids.uuid();
+    expect(value).toHaveLength(36);
+    expect(value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
+  });
+});

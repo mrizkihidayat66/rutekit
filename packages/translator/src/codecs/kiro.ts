@@ -135,10 +135,13 @@ export function encodeKiroRequest(
 
   const body: Record<string, unknown> = {
     conversationState: {
-      agentContinuationId: context.ids.opaque(),
+      // A UUID, not the opaque token the other wires take. kiro types this field
+      // and answers `REQUEST_BODY_INVALID` for anything else, which reads as a
+      // malformed body rather than as one field having the wrong shape.
+      agentContinuationId: context.ids.uuid(),
       agentTaskType: TASK_TYPE,
       chatTriggerType: TRIGGER_TYPE,
-      conversationId: context.ids.opaque(),
+      conversationId: context.ids.uuid(),
       currentMessage: {
         userInputMessage: {
           content,
