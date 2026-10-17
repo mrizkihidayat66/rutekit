@@ -349,7 +349,7 @@ export function makeServer(options: MakeServerOptions = {}): TestServer {
   // The account service is shared with the job manager, the same way `main.ts`
   // shares it: a credential a worker imports is stored through the same path an
   // operator's hand-added account goes through.
-  const pool = createPool({ accounts, secrets, strategy: () => poolStrategy.read(), logger });
+  const pool = createPool({ registry, accounts, secrets, strategy: () => poolStrategy.read(), logger });
 
   // Verification (C12). It probes through the same `callModel` the data plane
   // uses, so a test that replaces `fetch` reaches it too.

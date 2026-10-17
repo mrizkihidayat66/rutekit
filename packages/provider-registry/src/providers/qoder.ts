@@ -41,6 +41,11 @@ export const qoder: ProviderManifestInput = {
       tokenUrl: 'https://api3.qoder.sh/oauth/token',
       scopes: ['openid'],
       redirectPath: '/console/api/providers/qoder/oauth/callback',
+      // qoder's stored envelope names its session token `securityOauthToken`, and
+      // the chat codec signs its own header so it never noticed. The probe reads
+      // the credential through this name; without it, it sent the whole JSON
+      // document as a bearer and every account was refused.
+      credentialField: 'securityOauthToken',
     },
     { mode: 'api-key', header: 'Authorization', scheme: 'Bearer' },
   ],

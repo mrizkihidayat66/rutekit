@@ -55,6 +55,19 @@ export const oauthBrowserAuthSchema = z.object({
   usePkce: z.boolean().default(true),
   /** Static parameters the provider requires on the authorize request. */
   extraParams: z.record(z.string(), z.string()).default({}),
+  /**
+   * Which field of the stored credential carries the bearer token.
+   *
+   * **Not every provider calls it `accessToken`.** qoder's envelope names its
+   * session token `securityOauthToken`, and a reader that looked only for the
+   * conventional name fell back to the whole JSON document — so the probe sent
+   * `Authorization: Bearer {"personalToken":…}` and was refused, while the chat
+   * path never noticed because its codec writes its own signed header.
+   *
+   * The default is the OAuth convention, so only a provider that departs from it
+   * says anything here.
+   */
+  credentialField: z.string().min(1).default('accessToken'),
 });
 
 /**
@@ -71,6 +84,8 @@ export const oauthDeviceAuthSchema = z.object({
   deviceCodeUrl: z.url(),
   tokenUrl: z.url(),
   scopes: z.array(z.string().min(1)).default([]),
+  /** See `oauthBrowserAuthSchema.credentialField`. */
+  credentialField: z.string().min(1).default('accessToken'),
 });
 
 /**

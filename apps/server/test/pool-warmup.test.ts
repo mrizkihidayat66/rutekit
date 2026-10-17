@@ -782,3 +782,39 @@ describe('a body that reports no balance', () => {
     expect(row?.quotaResetAt).toBeNull();
   });
 });
+
+describe('a credential that does not call its token accessToken', () => {
+  /**
+   * qoder stores `securityOauthToken`, and the reader looked only for the OAuth
+   * convention — so it fell back to treating the whole JSON document as the
+   * credential and sent `Authorization: Bearer {"personalToken":…}`. Every
+   * account was refused for it, and every sweep banned the lot.
+   *
+   * The chat path never noticed, because its codec writes its own signed header;
+   * only the probe reads the credential through the manifest.
+   */
+
+  it('sends the token the manifest names, not the whole envelope', async () => {
+    const id = seed(
+      'qoder',
+      'active',
+      JSON.stringify({ personalToken: 'pt-1', securityOauthToken: 'session-1', userId: 'u' }),
+    );
+
+    let seen: string | null = null;
+    const warmup = makeWarmup(
+      stubFetch((_url, init) => {
+        seen = new Headers(init?.headers).get('authorization');
+        return new Response(JSON.stringify({ userQuota: { total: 1, remaining: 1 } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+
+    await warmup.checkIn(['qoder']);
+
+    expect(seen).toBe('Bearer session-1');
+    expect(accounts.findById(id)?.state).toBe('active');
+  });
+});

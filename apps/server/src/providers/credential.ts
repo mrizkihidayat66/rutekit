@@ -60,11 +60,19 @@ function stringFieldsOf(value: unknown): Readonly<Record<string, string>> {
   return fields;
 }
 
-/** The stored envelope as an OAuth token, or null when it is something else. */
-function asOauth(value: unknown): StoredCredential | null {
+/**
+ * The stored envelope as an OAuth token, or null when it is something else.
+ *
+ * `field` is the manifest's `credentialField`: qoder names its session token
+ * `securityOauthToken`, and a reader that looked only for the conventional name
+ * fell back to treating the whole JSON document as the credential — which the
+ * probe then sent as a bearer and had refused, while the chat path never noticed
+ * because its codec writes its own signed header.
+ */
+function asOauth(value: unknown, field: string): StoredCredential | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const accessToken = record['accessToken'];
+  const accessToken = record[field];
   if (typeof accessToken !== 'string' || accessToken === '') return null;
   const expiresAt = record['expiresAt'];
   const optional = (key: string): string | null => {
@@ -92,6 +100,7 @@ function asOauth(value: unknown): StoredCredential | null {
 export function readCredential(
   secrets: SecretBox | null,
   row: ProviderAccountRow,
+  tokenField = 'accessToken',
 ): AccountCredential | null {
   if (secrets === null) return null;
 
@@ -107,7 +116,7 @@ export function readCredential(
   const parsed = parseJson(plaintext);
   const fields = stringFieldsOf(parsed);
 
-  const oauth = asOauth(parsed);
+  const oauth = asOauth(parsed, tokenField);
   if (oauth !== null) return { value: oauth.accessToken, expiresAt: oauth.expiresAt, fields };
   return plaintext === '' ? null : { value: plaintext, expiresAt: null, fields };
 }

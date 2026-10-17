@@ -250,7 +250,14 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     const row = deps.accounts.findById(accountId);
     if (row === null) return;
 
-    const credential = readCredential(deps.secrets, row);
+    // The field the manifest named, not the OAuth convention: qoder stores its
+    // session token under `securityOauthToken`, and reading the wrong name handed
+    // the probe the whole JSON document as a bearer — which every account was
+    // refused for, so every sweep banned the lot.
+    const auth = manifest.authModes[0];
+    const tokenField =
+      auth !== undefined && 'credentialField' in auth ? auth.credentialField : 'accessToken';
+    const credential = readCredential(deps.secrets, row, tokenField);
     if (credential === null) return;
 
     const at = now();

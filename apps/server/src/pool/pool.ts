@@ -1,5 +1,6 @@
 import type { Logger } from 'pino';
 import type { LoadBalanceStrategy } from '@contracts';
+import type { ProviderRegistry } from '@registry';
 
 import type { ProviderAccountsRepository } from '@server/persistence/provider-accounts.ts';
 import type { AccountCredential } from '@server/providers/credential.ts';
@@ -55,6 +56,7 @@ export interface Pool {
 }
 
 export interface PoolDeps {
+  readonly registry: ProviderRegistry;
   readonly accounts: ProviderAccountsRepository;
   readonly secrets: SecretBox | null;
   readonly strategy: () => LoadBalanceStrategy;
@@ -91,7 +93,13 @@ export function createPool(deps: PoolDeps): Pool {
     for (const row of deps.accounts.listByProvider(providerId)) {
       const state = parseAccountState(row.state);
       if (state === null || !isRoutable(state)) continue;
-      const credential = readCredential(deps.secrets, row);
+      // Read through the manifest, so a provider that names its token something
+      // other than `accessToken` — qoder's is `securityOauthToken` — yields the
+      // token rather than the whole envelope.
+      const auth = deps.registry.get(providerId)?.authModes[0];
+      const tokenField =
+        auth !== undefined && 'credentialField' in auth ? auth.credentialField : 'accessToken';
+      const credential = readCredential(deps.secrets, row, tokenField);
       // A row whose envelope will not decrypt is skipped rather than fatal, the
       // same reading the pre-pool dispatcher took: one broken account among
       // several is not a reason to refuse the turn.

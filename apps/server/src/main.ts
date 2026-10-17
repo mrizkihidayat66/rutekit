@@ -210,6 +210,7 @@ export function main(): void {
   // next turn rather than the next restart.
   const poolStrategy = createPoolStrategySettings({ meta });
   const pool = createPool({
+    registry,
     accounts,
     secrets,
     strategy: () => poolStrategy.read(),
