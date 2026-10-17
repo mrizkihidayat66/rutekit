@@ -61,7 +61,14 @@ export function upstreamFailure(
         fields,
       );
     case 'auth':
-      return AppError.upstreamError(`${manifest.name} refused this account's credential.`, fields);
+      return AppError.upstreamError(`${manifest.name} refused this account's credential.`, {
+        ...fields,
+        // The client's key is fine and the answer to them stays a 502; the pool
+        // is the one that has to know the account is what the provider refused.
+        // Without this the turn path retried a suspended account forever while
+        // the probe parked it on the same 403 — the same credential, two answers.
+        credentialRefused: true,
+      });
     case 'transient':
       return AppError.upstreamError(
         `${manifest.name} could not serve the request right now (HTTP ${status}).`,

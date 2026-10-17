@@ -80,6 +80,15 @@ export function outcomeFromError(error: unknown, at: Date): Outcome {
   const kind = isAppError(error) ? error.kind : null;
   const retryAfter = isAppError(error) ? error.retryAfterSeconds : null;
 
+  // A provider that refused the credential is a `banned` account whichever path
+  // noticed, and the manifest's own `errors` table is what said so. Checked before
+  // the kind because the client-facing error for this is an `upstream_error` —
+  // their key is not the problem — which would otherwise read as transient and
+  // retry a dead account on every turn.
+  if (isAppError(error) && error.credentialRefused) {
+    return ban('The provider rejected this credential.');
+  }
+
   switch (kind) {
     // We sent it wrong, or the client left. The turn is lost; the account is not
     // blamed for it, and there is nothing here that says it is healthy either.

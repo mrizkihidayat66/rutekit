@@ -71,6 +71,18 @@ describe('outcomeFromError', () => {
     expect(outcomeFromError(AppError.permission('no'), AT).state).toBe('banned');
   });
 
+  it('bans an account whose credential an upstream refusal named', () => {
+    // The client-facing error is an `upstream_error`, because their key is fine,
+    // but the manifest's `errors` table said this status is about the credential.
+    // Reading the kind alone would make a suspended account transient and retry
+    // it on every turn, while the probe banned it on the same answer.
+    const refused = new AppError('upstream_error', 'Kiro AI refused this account.', {
+      provider: 'kiro',
+      credentialRefused: true,
+    });
+    expect(outcomeFromError(refused, AT).state).toBe('banned');
+  });
+
   it('treats a timeout, a 5xx or a bug as transient', () => {
     expect(outcomeFromError(AppError.timeout(), AT).effect).toBe('transient');
     expect(outcomeFromError(AppError.upstreamError('boom'), AT).effect).toBe('transient');

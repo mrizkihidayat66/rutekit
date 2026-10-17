@@ -50,6 +50,16 @@ export interface AppErrorFields {
   readonly status?: number;
   /** Internal detail for the log only. Never serialised to a client. */
   readonly cause?: unknown;
+  /**
+   * The provider said the *account* is the problem, not the request.
+   *
+   * A manifest's `errors` table is what decides this — kiro declares 401 and 403
+   * as `auth` — and the pool needs the answer to park the account instead of
+   * retrying it forever. It travels as its own field rather than as the error's
+   * kind because the client is not at fault: their key is fine, our upstream
+   * account is not, and the answer to them is still a 502.
+   */
+  readonly credentialRefused?: boolean;
 }
 
 export class AppError extends Error {
@@ -57,6 +67,7 @@ export class AppError extends Error {
   readonly status: number;
   readonly provider: string | null;
   readonly retryAfterSeconds: number | null;
+  readonly credentialRefused: boolean;
 
   constructor(kind: ErrorKind, message?: string, fields: AppErrorFields = {}) {
     super(message ?? DEFAULT_MESSAGE[kind]);
@@ -65,6 +76,7 @@ export class AppError extends Error {
     this.status = fields.status ?? STATUS_BY_KIND[kind];
     this.provider = fields.provider ?? null;
     this.retryAfterSeconds = fields.retryAfterSeconds ?? null;
+    this.credentialRefused = fields.credentialRefused ?? false;
     if (fields.cause !== undefined) this.cause = fields.cause;
   }
 
