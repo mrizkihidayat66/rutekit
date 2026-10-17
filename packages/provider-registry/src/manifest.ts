@@ -136,15 +136,35 @@ export const providerManifestSchema = z.object({
    * provider spells that request differently and none of them needs code.
    */
   credentialRefresh: z
-    .object({
-      url: z.url(),
-      /** JSON body, with `{refreshToken}` replaced by the stored token. */
-      bodyTemplate: z.string().min(2),
-      /** The field in the answer that carries the new access token. */
-      accessTokenField: z.string().min(1),
-      /** The field carrying a rotated refresh token, when the provider rotates. */
-      refreshTokenField: z.string().min(1).nullable().default(null),
-    })
+    .discriminatedUnion('kind', [
+      /**
+       * A URL and a JSON body, which is all most renewals are: kiro posts
+       * `{"refreshToken": …}` and gets a new token back.
+       */
+      z.object({
+        kind: z.literal('template'),
+        url: z.url(),
+        /** JSON body, with `{refreshToken}` replaced by the stored token. */
+        bodyTemplate: z.string().min(2),
+        /** The field in the answer that carries the new access token. */
+        accessTokenField: z.string().min(1),
+        /** The field carrying a rotated refresh token, when the provider rotates. */
+        refreshTokenField: z.string().min(1).nullable().default(null),
+      }),
+      /**
+       * A renewal the wire family builds, because it is signed.
+       *
+       * qoder's exchange carries a session key encrypted to the provider's public
+       * key and an MD5 over the headers, which no template can express. The
+       * manifest still declares the renewal — a provider without one must not be
+       * probed as though it had one — and names where it goes, so an operator can
+       * see it. The codec supplies the request and reads the answer.
+       */
+      z.object({
+        kind: z.literal('wire'),
+        url: z.url(),
+      }),
+    ])
     .nullable()
     .default(null),
 });

@@ -196,6 +196,18 @@ export const qoder: ProviderManifestInput = {
     { class: 'transient', statuses: [500, 502, 503, 504] },
   ],
 
+  // Qoder renews, but not the way a manifest can describe.
+  //
+  // The long-lived secret is the personal token; what expires is the session token
+  // derived from it, and the endpoint that derives it wants a signed request — an
+  // app code, a date, an MD5 over both, and the machine identity recorded at
+  // import. That is the codec's arithmetic (`renewQoderCredential`), so this block
+  // says only that a renewal exists and where it goes.
+  credentialRefresh: {
+    kind: 'wire',
+    url: 'https://center.qoder.sh/algo/api/v3/user/jobToken?Encode=1',
+  },
+
   // Qoder's **sign-in page**, which is where a person starts.
   //
   // The flow presses the Google button on this page rather than being handed the

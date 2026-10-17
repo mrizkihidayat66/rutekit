@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { CanonicalRequest } from '../src/canonical-request.ts';
 import type { CodecContext } from '../src/codecs/types.ts';
-import { decodeQoderResponse, encodeQoderRequest, qoderError } from '../src/codecs/qoder.ts';
+import {
+  decodeQoderResponse,
+  encodeQoderRequest,
+  qoderError,
+  renewQoderCredential,
+} from '../src/codecs/qoder.ts';
 import { createQoderStreamDecoder } from '../src/codecs/qoder.ts';
 import { testCrypto } from './crypto-stand-in.ts';
 
@@ -272,5 +277,65 @@ describe('a failed request', () => {
     const error = qoderError({ status: 503, body: '', retryAfterSeconds: 3 });
     expect(error.kind).toBe('unavailable');
     expect(error.retryAfterSeconds).toBe(3);
+  });
+});
+
+describe('the renewal', () => {
+  /**
+   * A qoder credential is not renewed by re-posting the personal token: what
+   * expires is the session token derived from it, and the exchange that derives
+   * it is signed with the machine identity recorded at import. That is why this
+   * is a codec's job and not a manifest template.
+   */
+
+  it('posts to the exchange endpoint on its own host, not the chat host', () => {
+    const renewal = renewQoderCredential(context({ machineId: 'machine-1' }));
+    expect(renewal.url).toBe('https://center.qoder.sh/algo/api/v3/user/jobToken?Encode=1');
+  });
+
+  it('signs with the app code, the date, and the machine the account was imported with', () => {
+    const renewal = renewQoderCredential(context({ machineId: 'machine-1' }));
+
+    expect(renewal.headers['appcode']).toBe('cosy');
+    expect(renewal.headers['cosy-machineid']).toBe('machine-1');
+    // RFC 1123, because that is what the signature is computed over — not the
+    // unix seconds the chat headers carry.
+    expect(renewal.headers['date']).toMatch(/GMT$/u);
+    expect(renewal.headers['signature']).toBe(testCrypto.md5Hex('cosy&d2FyLCB3YXIgbmV2ZXIgY2hhbmdlcw==&' + renewal.headers['date']));
+  });
+
+  it('encodes the body, because the exchange decodes it the same way the chat body is decoded', () => {
+    const renewal = renewQoderCredential(context());
+    // The custom alphabet has no '+' and no '/', which is what distinguishes an
+    // encoded body from a plain JSON one.
+    expect(renewal.body).not.toContain('+');
+    expect(renewal.body).not.toContain('/');
+    expect(renewal.body).not.toContain('{');
+  });
+
+  it('reads the answer into the fields this account stores', () => {
+    const renewal = renewQoderCredential(context());
+    const fields = renewal.read({
+      id: 'user-9',
+      securityOauthToken: 'session-2',
+      refreshToken: 'refresh-2',
+      userType: 'personal_pro',
+      expireTime: 1_792_312_271_914,
+    });
+
+    expect(fields).toEqual({
+      securityOauthToken: 'session-2',
+      refreshToken: 'refresh-2',
+      userId: 'user-9',
+      userType: 'personal_pro',
+      // Milliseconds upstream, ISO here — the unit does not leak into storage.
+      expiresAt: '2026-10-18T08:31:11.914Z',
+    });
+  });
+
+  it('answers null for an answer that carried no token', () => {
+    const renewal = renewQoderCredential(context());
+    expect(renewal.read({ message: 'nope' })).toBeNull();
+    expect(renewal.read(null)).toBeNull();
   });
 });

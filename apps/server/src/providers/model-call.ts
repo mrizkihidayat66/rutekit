@@ -15,7 +15,7 @@ import type {
 import type { IdFactory } from '@shared';
 
 import { nodeCrypto } from './codec-crypto.ts';
-import { refreshCredential, refreshPolicyOf } from './credential-refresh.ts';
+import { needsRenewal, refreshCredential, refreshPolicyOf } from './credential-refresh.ts';
 import { AppError } from '@server/errors.ts';
 import { degrade, type ControlKind } from '@server/plan/capability.ts';
 import type { AccountLease, Pool } from '@server/pool/pool.ts';
@@ -226,7 +226,7 @@ export async function callModel(
     // lazily — on a 401 — would mean every expired account costs one refused turn
     // before it works, and for a provider whose 403 also means "suspended" the two
     // are not distinguishable from the outside.
-    const account = await renewedCredential(deps, call.manifest, lease, hooks);
+    const account = await renewedCredential(deps, call.manifest, call.modelId, lease, hooks);
     const context: CodecContext = {
       now: deps.now,
       ids: deps.ids,
@@ -442,15 +442,31 @@ export function mergeHeaders(
 async function renewedCredential(
   deps: ModelCallDeps,
   manifest: ProviderManifest,
+  modelId: string,
   lease: AccountLease,
   hooks: ModelCallHooks,
 ): Promise<Readonly<Record<string, string>>> {
   const policy = refreshPolicyOf(manifest);
   if (policy === null) return lease.credential.fields;
 
+  // A credential whose recorded expiry is still ahead is spent as it is. A
+  // renewal is a round trip and, for a rotating provider, a write — doing it on
+  // every turn because the token might be old is a cost with nothing bought.
+  if (!needsRenewal(lease.credential.expiresAt, deps.now())) return lease.credential.fields;
+
   const outcome = await refreshCredential(
     policy,
     lease.credential.fields,
+    {
+      now: deps.now,
+      ids: deps.ids,
+      model: modelId,
+      // The stored fields, not a merged set: a signed renewal (qoder's) reads the
+      // machine identity and the personal token out of here, and those are what
+      // the account was imported with.
+      account: lease.credential.fields,
+      crypto: nodeCrypto,
+    },
     deps.fetch,
     deps.config.upstreamTimeoutMs,
   );

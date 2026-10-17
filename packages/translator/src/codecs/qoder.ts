@@ -7,7 +7,13 @@ import type { CanonicalStreamEvent } from '../canonical-stream.ts';
 import { createOpenAiStreamDecoder } from './openai-stream.ts';
 import { createUtf8SseDecoder } from '@shared';
 import { httpErrorKind, num, statusMessage, str, zeroUsage } from './shared.ts';
-import type { CodecContext, EncodedRequest, ErrorInput, StreamDecoder } from './types.ts';
+import type {
+  CodecContext,
+  EncodedRequest,
+  ErrorInput,
+  StreamDecoder,
+  WireRenewal,
+} from './types.ts';
 
 /**
  * qoder's wire: a signed request, answered in [OI] chunks inside an envelope.
@@ -69,6 +75,20 @@ const STANDARD_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
 
 /** What the client calls itself. The server routes billing on these. */
 const COSY_VERSION = '1.0.22';
+
+/** The renewal endpoint. A different host from the chat, and not the manifest's. */
+const JOB_TOKEN_URL = 'https://center.qoder.sh/algo/api/v3/user/jobToken?Encode=1';
+
+/**
+ * What the renewal signature is computed over, and the secret it is mixed with.
+ *
+ * The "secret" is a constant in qoder's own client — it authenticates the client,
+ * not the account — which is why it is written here beside the public key rather
+ * than treated as configuration.
+ */
+const APPCODE = 'cosy';
+const SIGNATURE_SECRET = 'd2FyLCB3YXIgbmV2ZXIgY2hhbmdlcw==';
+
 const BUSINESS_PRODUCT = 'cli';
 const BUSINESS_TYPE = 'agent';
 const BUSINESS_VERSION = '1.0.22';
@@ -305,6 +325,89 @@ export function encodeQoderRequest(request: CanonicalRequest, context: CodecCont
     origin: chatUrl.origin,
     body: bodyEncoded,
     headers: signedHeaders(context, bodyEncoded, identity, sessionKey),
+  };
+}
+
+/**
+ * The renewal, in this wire's own spelling.
+ *
+ * **A qoder credential is not renewed by re-exchanging the personal token.** The
+ * personal token is the long-lived secret; what expires is the session token
+ * derived from it, and the endpoint that derives it wants the signature headers a
+ * chat request carries — an app code, an RFC 1123 date, an MD5 over both, and the
+ * machine identity the account was imported with. That is arithmetic no manifest
+ * field can express, which is why this lives in the codec and the manifest only
+ * says that a renewal exists.
+ *
+ * The body is the COSY encoding of a small JSON document — the same obfuscation
+ * the chat body goes through, and the signature is not over it, so the encoding
+ * has to happen here rather than in the transport.
+ */
+export function renewQoderCredential(context: CodecContext): WireRenewal {
+  const account = context.account;
+  const machineId = account['machineId'] ?? context.ids.opaque();
+  // RFC 1123, because that is what the signature is computed over — not the unix
+  // seconds the chat headers carry.
+  const date = new Date(context.now() * 1000).toUTCString();
+
+  const body = encodePayload(
+    JSON.stringify({
+      payload: JSON.stringify({
+        personalToken: account['personalToken'] ?? '',
+        securityOauthToken: account['securityOauthToken'] ?? '',
+        refreshToken: account['refreshToken'] ?? '',
+        // The exchange answers a fresh session token either way; saying so is what
+        // makes it do that rather than hand back the one already stored.
+        needRefresh: true,
+        authInfo: {},
+      }),
+      encodeVersion: '1',
+    }),
+  );
+
+  return {
+    url: JOB_TOKEN_URL,
+    headers: {
+      appcode: APPCODE,
+      signature: context.crypto.md5Hex(`${APPCODE}&${SIGNATURE_SECRET}&${date}`),
+      date,
+      'cosy-machinetoken': machineId,
+      'cosy-machinetype': '5',
+      'cosy-machineid': machineId,
+      'cosy-clienttype': '5',
+      'cosy-version': COSY_VERSION,
+      'login-version': 'v2',
+      'content-type': 'application/json',
+      accept: 'application/json',
+      'accept-encoding': 'identity',
+      'user-agent': 'Go-http-client/2.0',
+    },
+    body,
+    read(answer: unknown): Record<string, string> | null {
+      const record = asRecord(answer);
+      if (record === null) return null;
+      const token = str(record['securityOauthToken']);
+      if (token === undefined || token === '') return null;
+
+      const fields: Record<string, string> = { securityOauthToken: token };
+      const rotated = str(record['refreshToken']);
+      if (rotated !== undefined) fields['refreshToken'] = rotated;
+      // The id travels with the token and the signing needs it, so a credential
+      // imported without one becomes usable the first time it is renewed.
+      const userId = str(record['id']);
+      if (userId !== undefined) fields['userId'] = userId;
+      const userType = str(record['userType']);
+      if (userType !== undefined) fields['userType'] = userType;
+
+      // Milliseconds since the epoch, unlike every other expiry this server
+      // stores — so it is converted here rather than leaking a unit into a caller
+      // that would read it as seconds.
+      const expiresAt = num(record['expireTime']);
+      if (expiresAt !== undefined && expiresAt > 0) {
+        fields['expiresAt'] = new Date(expiresAt).toISOString();
+      }
+      return fields;
+    },
   };
 }
 

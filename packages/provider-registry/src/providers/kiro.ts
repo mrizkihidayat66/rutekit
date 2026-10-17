@@ -290,6 +290,7 @@ export const kiro: ProviderManifestInput = {
   // spent when the access token ages out. Without this an imported account was
   // dead within hours and the only way back was another browser sign-in.
   credentialRefresh: {
+    kind: 'template',
     url: 'https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken',
     bodyTemplate: '{"refreshToken":{refreshToken}}',
     accessTokenField: 'accessToken',

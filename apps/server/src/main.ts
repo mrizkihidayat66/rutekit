@@ -60,6 +60,7 @@ import { createPlanner } from '@server/plan/plan.ts';
 import { createPool } from '@server/pool/pool.ts';
 import { createPoolStrategySettings } from '@server/pool/strategy.ts';
 import { createWarmup } from '@server/pool/warmup.ts';
+import { nodeCrypto } from '@server/providers/codec-crypto.ts';
 import { createModelCatalog } from '@server/providers/model-catalog.ts';
 import { createPendingFlows } from '@server/providers/oauth/pending.ts';
 import { createProviderOauthService } from '@server/providers/oauth/service.ts';
@@ -221,6 +222,10 @@ export function main(): void {
     fetch: responseFetch,
     config,
     logger,
+    // The probe renews a refused credential the same way a turn does, and a
+    // signed renewal needs the same ids and primitives a request builder does.
+    ids: createIdFactory((bytes) => crypto.getRandomValues(new Uint8Array(bytes))),
+    crypto: nodeCrypto,
   });
 
   // The plan (C5b). Every read is from the database, so there is no cache here to

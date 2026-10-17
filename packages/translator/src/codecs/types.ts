@@ -134,6 +134,41 @@ export interface StreamDecoder {
   flush(): readonly CanonicalStreamEvent[];
 }
 
+/**
+ * A request that spends a refresh token, as its wire spells it.
+ *
+ * **Some providers cannot be renewed by a manifest.** kiro's renewal is a URL
+ * and a JSON body with one substituted value, which a manifest can describe
+ * completely. qoder's is the same idea with a signature on top: the body is
+ * re-encoded through a custom alphabet, the headers carry a session key encrypted
+ * to the provider's public key, and an MD5 over all of it is the credential. That
+ * is the codec's arithmetic, not a string template.
+ *
+ * So a wire that can renew says so, and says how to read the answer back. The
+ * manifest still declares *that* the provider renews, because a provider without
+ * a renewal must not be probed as though it had one.
+ */
+export interface WireRenewal {
+  /** Where the renewal goes. Absolute: it is not always on the chat host. */
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+  /** Already encoded — a signed body is what the signature was computed over. */
+  readonly body: string;
+  /**
+   * The answer, read into the fields to store — or null when it carried no
+   * credential.
+   *
+   * Null rather than throwing because the caller has a status code to report and
+   * a reason to log; a codec inventing an error type for this would only make
+   * the caller translate it back.
+   *
+   * A function rather than a method, and `this: void` for the same reason: the
+   * caller stores it detached from the object it came on, and a method would
+   * carry a receiver it no longer has.
+   */
+  readonly read: (this: void, answer: unknown) => Record<string, string> | null;
+}
+
 /** The parts of a failed upstream response a codec reads. */
 export interface ErrorInput {
   readonly status: number;
@@ -171,4 +206,16 @@ export interface WireCodec {
   createStreamDecoder(context: CodecContext): StreamDecoder;
   /** A failed answer, decoded into the one error shape every surface returns. */
   decodeError(input: ErrorInput): ApiError;
+  /**
+   * How this wire renews its credential, when a manifest alone cannot say.
+   *
+   * Absent for every family whose renewal is a URL and a body — kiro's is, and
+   * its manifest describes it. Present only where the renewal is signed, because
+   * there is nowhere else for that arithmetic to live.
+   *
+   * A property holding a function rather than a method: the caller stores it
+   * detached from the codec, and a method would carry a receiver it no longer
+   * has.
+   */
+  readonly renew?: (this: void, context: CodecContext) => WireRenewal;
 }

@@ -2,6 +2,9 @@ import type { Logger } from 'pino';
 import type { ProviderManifest, ProviderRegistry } from '@registry';
 import { applyAuth, endpointUrl, probePath, withQuery } from '@registry';
 
+import type { IdFactory } from '@shared';
+import type { CryptoPort } from '@translator';
+
 import type { ProviderAccountsRepository } from '@server/persistence/provider-accounts.ts';
 import { readCredential } from '@server/providers/credential.ts';
 import { refreshCredential, refreshPolicyOf } from '@server/providers/credential-refresh.ts';
@@ -66,6 +69,16 @@ export interface WarmupDeps {
   readonly fetch: ResponseFetcher;
   readonly config: ServerConfig;
   readonly logger: Logger;
+  /**
+   * What a signed renewal needs, and the probe does not otherwise use.
+   *
+   * A provider whose renewal is signed (qoder's) builds its request in the codec,
+   * which asks for ids and cryptographic primitives like any request builder. The
+   * probe renews a refused credential the same way a turn does, so it needs the
+   * same two — and nothing else here does.
+   */
+  readonly ids: IdFactory;
+  readonly crypto: CryptoPort;
   readonly now?: () => Date;
 }
 
@@ -159,6 +172,15 @@ export function createWarmup(deps: WarmupDeps): Warmup {
     const outcome = await refreshCredential(
       policy,
       fields,
+      {
+        now: () => Math.floor(now().getTime() / 1000),
+        ids: deps.ids,
+        // A probe names no model; only the wire's own builder reads this, and no
+        // renewal depends on it.
+        model: '',
+        account: fields,
+        crypto: deps.crypto,
+      },
       deps.fetch,
       deps.config.warmupTimeoutMs,
     );

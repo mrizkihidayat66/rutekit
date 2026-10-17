@@ -5,7 +5,12 @@ import { createAnthropicStreamDecoder } from './anthropic-stream.ts';
 import { decodeGoogleResponse, encodeGoogleRequest, googleError } from './google.ts';
 import { decodeKiroResponse, encodeKiroRequest, kiroError } from './kiro.ts';
 import { createKiroStreamDecoder } from './kiro.ts';
-import { decodeQoderResponse, encodeQoderRequest, qoderError } from './qoder.ts';
+import {
+  decodeQoderResponse,
+  encodeQoderRequest,
+  qoderError,
+  renewQoderCredential,
+} from './qoder.ts';
 import { createQoderStreamDecoder } from './qoder.ts';
 import { createGoogleStreamDecoder } from './google-stream.ts';
 import { decodeOpenAiResponse, encodeOpenAiRequest, openAiError } from './openai.ts';
@@ -61,6 +66,8 @@ export const qoderCodec: WireCodec = {
   decodeResponse: decodeQoderResponse,
   createStreamDecoder: createQoderStreamDecoder,
   decodeError: qoderError,
+  // Signed, so a manifest cannot describe it — see `renewQoderCredential`.
+  renew: renewQoderCredential,
 };
 
 export const googleCodec: WireCodec = {

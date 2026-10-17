@@ -58,6 +58,7 @@ import { createPlanner } from '@server/plan/plan.ts';
 import { createPool } from '@server/pool/pool.ts';
 import { createPoolStrategySettings } from '@server/pool/strategy.ts';
 import { createWarmup } from '@server/pool/warmup.ts';
+import { nodeCrypto } from '@server/providers/codec-crypto.ts';
 import { createModelCatalog } from '@server/providers/model-catalog.ts';
 import { createPendingFlows } from '@server/providers/oauth/pending.ts';
 import { createProviderOauthService } from '@server/providers/oauth/service.ts';
@@ -263,6 +264,8 @@ export function makeServer(options: MakeServerOptions = {}): TestServer {
     fetch: responseFetch,
     config,
     logger,
+    ids: createIdFactory((bytes) => crypto.getRandomValues(new Uint8Array(bytes))),
+    crypto: nodeCrypto,
   });
   const requests = createRequestsRepository(persistence.db);
   const telemetry = createTelemetryRecorder({

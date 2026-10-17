@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createProviderRegistry } from '@registry';
 import { providerManifests } from '@registry/providers/index.ts';
 
+import { createIdFactory } from '@shared';
+
 import { silentLogger } from '@server/observability/logger.ts';
+import { nodeCrypto } from '@server/providers/codec-crypto.ts';
 import { openPersistence, type Persistence } from '@server/persistence/client.ts';
 import { runMigrations } from '@server/persistence/migrate.ts';
 import {
@@ -99,6 +102,8 @@ function makeWarmup(fetch: ResponseFetcher, intervalMs = 60_000): Warmup {
     fetch,
     config,
     logger: silentLogger(),
+    ids: createIdFactory((bytes) => crypto.getRandomValues(new Uint8Array(bytes))),
+    crypto: nodeCrypto,
     now: () => clock,
   });
 }
